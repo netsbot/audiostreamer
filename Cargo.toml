@@ -1,0 +1,26 @@
+[package]
+name = "audiostreamer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"
+log = "0.4"
+reqwest = { version = "0.13" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs"] }
+toml = "1.1"
+m3u8-rs = "6"
+regex = "1.12.3"
+libc = "0.2.184"
+symphonia = { version = "0.5.3", features = ["all"] }
+ffmpeg-next = { version = "8.1", features = ["codec", "software-resampling", "format"] }
+ffmpeg-sys-next = "8.1"
+cpal = "0.15"
+
+[dev-dependencies]
+tempfile = "3"
