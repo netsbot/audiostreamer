@@ -1,15 +1,14 @@
 use crate::audio::source::SampleBuffer;
 use crate::error::StreamerError;
-use ffmpeg_next::format::sample::Type as SampleType;
-use ffmpeg_next::software::resampling::Context as ResamplerContext;
 use ffmpeg_next::{self as ffmpeg, Packet};
-use ffmpeg_next::{frame, packet, ChannelLayout};
+use ffmpeg_next::format::Sample;
+use ffmpeg_next::format::sample::Type as SampleType;
+use ffmpeg_next::frame;
 
 pub type Result<T> = std::result::Result<T, StreamerError>;
 
 pub struct AlacDecoder {
     decoder: ffmpeg::codec::decoder::Audio,
-    resampler: ResamplerContext,
 }
 
 impl AlacDecoder {
@@ -50,21 +49,15 @@ impl AlacDecoder {
             .audio()
             .map_err(|e| StreamerError::Message(format!("Failed to get audio decoder: {}", e)))?;
 
-        // Initialize resampler to convert from ALAC's output to interleaved f32
-        let resampler = ResamplerContext::get(
-            audio_decoder.format(),
-            audio_decoder.channel_layout(),
-            audio_decoder.rate(),
-            ffmpeg::format::Sample::F32(ffmpeg::format::sample::Type::Packed),
-            ChannelLayout::STEREO,
-            audio_decoder.rate(),
-        )
-        .map_err(|e| StreamerError::Message(format!("Failed to create resampler: {}", e)))?;
+        Ok(Self { decoder: audio_decoder })
+    }
 
-        Ok(Self {
-            decoder: audio_decoder,
-            resampler,
-        })
+    pub fn channels(&self) -> u16 {
+        self.decoder.channels() as u16
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.decoder.rate() as u32
     }
 
     pub fn decode_sample(&mut self, data: &[u8]) -> Result<SampleBuffer> {
@@ -75,26 +68,115 @@ impl AlacDecoder {
             .map_err(|e| StreamerError::Message(format!("Error sending packet: {}", e)))?;
 
         let mut decoded_frame = frame::Audio::empty();
-        let mut pcm_data = Vec::new();
+        let mut output: Option<SampleBuffer> = None;
 
         while self.decoder.receive_frame(&mut decoded_frame).is_ok() {
-            let mut resampled_frame = frame::Audio::empty();
-            self.resampler
-                .run(&decoded_frame, &mut resampled_frame)
-                .map_err(|e| StreamerError::Message(format!("Resampling failed: {}", e)))?;
+            let mut decoded = decode_frame_native(&decoded_frame)?;
 
-            // Interleaved f32 data is in plane 0
-            if resampled_frame.is_packed() {
-                let data = resampled_frame.data(0);
-                let samples: &[f32] = unsafe {
-                    std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len() / 4)
-                };
-                pcm_data.extend_from_slice(samples);
+            if let Some(samples) = output.as_mut() {
+                samples.append(&mut decoded);
+            } else {
+                output = Some(decoded);
             }
         }
 
-        Ok(SampleBuffer::F32(pcm_data))
+        Ok(output.unwrap_or_else(|| SampleBuffer::I16(Vec::new())))
     }
+}
+
+fn decode_frame_native(frame: &frame::Audio) -> Result<SampleBuffer> {
+    match frame.format() {
+        Sample::I16(SampleType::Packed) => {
+            let data = frame.data(0);
+            let samples: &[i16] = unsafe {
+                std::slice::from_raw_parts(data.as_ptr() as *const i16, data.len() / 2)
+            };
+            Ok(SampleBuffer::I16(samples.to_vec()))
+        }
+        Sample::I32(SampleType::Packed) => {
+            let data = frame.data(0);
+            let samples: &[i32] = unsafe {
+                std::slice::from_raw_parts(data.as_ptr() as *const i32, data.len() / 4)
+            };
+            Ok(SampleBuffer::I32(samples.to_vec()))
+        }
+        Sample::F32(SampleType::Packed) => {
+            let data = frame.data(0);
+            let samples: &[f32] = unsafe {
+                std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len() / 4)
+            };
+            Ok(SampleBuffer::F32(samples.to_vec()))
+        }
+        Sample::I16(SampleType::Planar) => {
+            let interleaved = interleave_planar_i16(frame);
+            Ok(SampleBuffer::I16(interleaved))
+        }
+        Sample::I32(SampleType::Planar) => {
+            let interleaved = interleave_planar_i32(frame);
+            Ok(SampleBuffer::I32(interleaved))
+        }
+        Sample::F32(SampleType::Planar) => {
+            let interleaved = interleave_planar_f32(frame);
+            Ok(SampleBuffer::F32(interleaved))
+        }
+        other => Err(StreamerError::Unsupported(format!(
+            "unsupported decoded sample format: {other:?}"
+        ))),
+    }
+}
+
+fn interleave_planar_i16(frame: &frame::Audio) -> Vec<i16> {
+    let channels = frame.channels() as usize;
+    let per_channel_samples = frame.samples();
+    let mut out = Vec::with_capacity(channels * per_channel_samples);
+
+    for i in 0..per_channel_samples {
+        for ch in 0..channels {
+            let plane = frame.data(ch);
+            let samples: &[i16] = unsafe {
+                std::slice::from_raw_parts(plane.as_ptr() as *const i16, per_channel_samples)
+            };
+            out.push(samples[i]);
+        }
+    }
+
+    out
+}
+
+fn interleave_planar_i32(frame: &frame::Audio) -> Vec<i32> {
+    let channels = frame.channels() as usize;
+    let per_channel_samples = frame.samples();
+    let mut out = Vec::with_capacity(channels * per_channel_samples);
+
+    for i in 0..per_channel_samples {
+        for ch in 0..channels {
+            let plane = frame.data(ch);
+            let samples: &[i32] = unsafe {
+                std::slice::from_raw_parts(plane.as_ptr() as *const i32, per_channel_samples)
+            };
+            out.push(samples[i]);
+        }
+    }
+
+    out
+}
+
+fn interleave_planar_f32(frame: &frame::Audio) -> Vec<f32> {
+    let channels = frame.channels() as usize;
+    let per_channel_samples = frame.samples();
+    let mut out = Vec::with_capacity(channels * per_channel_samples);
+
+    for i in 0..per_channel_samples {
+        for ch in 0..channels {
+            let plane = frame.data(ch);
+            let samples: &[f32] = unsafe {
+                std::slice::from_raw_parts(plane.as_ptr() as *const f32, per_channel_samples)
+            };
+            out.push(samples[i]);
+        }
+    }
+
+    out
 }
 
 impl std::fmt::Debug for AlacDecoder {

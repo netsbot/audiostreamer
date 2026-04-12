@@ -17,10 +17,9 @@ toml = "1.1"
 m3u8-rs = "6"
 regex = "1.12.3"
 libc = "0.2.184"
-symphonia = { version = "0.5.3", features = ["all"] }
+cpal = "0.15"
 ffmpeg-next = { version = "8.1", features = ["codec", "software-resampling", "format"] }
 ffmpeg-sys-next = "8.1"
-cpal = "0.15"
 
 [dev-dependencies]
 tempfile = "3"

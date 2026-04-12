@@ -1,6 +1,6 @@
-use crate::audio::source::SampleBuffer;
 use crate::audio::source::AudioChunk;
 use crate::audio::source::AudioSource;
+use crate::audio::source::SampleBuffer;
 use crate::client::AppleMusicClient;
 use crate::error::StreamerError;
 use crate::sources::utils;
@@ -9,7 +9,6 @@ use crate::{am_wrapper, gpac};
 use async_trait::async_trait;
 use m3u8_rs::MediaPlaylist;
 use reqwest::Url;
-use std::fs;
 use tokio::net::UnixStream;
 
 #[derive(Debug)]
@@ -19,7 +18,9 @@ pub struct Song {
     client: AppleMusicClient,
     raw_mp4: MemFile,
     gpac_iso_file: gpac::IsoFile,
+    #[allow(dead_code)]
     sample_rate: u32,
+    #[allow(dead_code)]
     bit_depth: u8,
     current_segment: usize,
     next_sample_number: u32,
@@ -39,13 +40,7 @@ impl Song {
 
         let (sample_rate, bit_depth) = utils::parse_alac_quality_from_codec_id(codec_id.as_str());
 
-        let init_section = media_playlist
-            .segments
-            .first()
-            .unwrap()
-            .map
-            .clone()
-            .unwrap();
+        let init_section = media_playlist.segments.first().unwrap().map.clone().unwrap();
 
         let init_section_url = Url::parse(&m3u8_url)?.join(init_section.uri.as_str())?;
         let init_section_data = client
@@ -60,9 +55,15 @@ impl Song {
 
         let gpac_iso_file = gpac::IsoFile::open_progressive(raw_mp4.path.as_str())?;
 
-        let alac_cookie = utils::generate_alac_extradata(sample_rate.unwrap(), 2, bit_depth.unwrap(), 0);
+        let alac_cookie =
+            utils::generate_alac_extradata(sample_rate.unwrap(), 2, bit_depth.unwrap(), 0);
 
-        let decoder = crate::audio::decoder::AlacDecoder::new(alac_cookie, sample_rate.unwrap(), 2, bit_depth.unwrap())?;
+        let decoder = crate::audio::decoder::AlacDecoder::new(
+            alac_cookie,
+            sample_rate.unwrap(),
+            2,
+            bit_depth.unwrap(),
+        )?;
 
         Ok(Self {
             adam_id: adam_id.to_string(),
@@ -133,7 +134,7 @@ impl AudioSource for Song {
         let mut sample_buffer = Vec::new();
         let mut pcm_samples: Option<SampleBuffer> = None;
 
-        for sample in new_samples.iter(){
+        for sample in new_samples.iter() {
             let key = self.keys.get(sample.desc_index).unwrap();
 
             if *key != current_state_key {
@@ -143,11 +144,9 @@ impl AudioSource for Song {
             }
 
             sample_buffer.clear();
-
             am_wrapper::decrypt_sample(&mut stream, &sample.data, &mut sample_buffer).await?;
 
             let mut decoded = self.decoder.decode_sample(&sample_buffer)?;
-
             if let Some(samples) = pcm_samples.as_mut() {
                 samples.append(&mut decoded);
             } else {
@@ -157,8 +156,8 @@ impl AudioSource for Song {
 
         Ok(Some(AudioChunk {
             samples: pcm_samples.unwrap_or(SampleBuffer::I16(Vec::new())),
-            sample_rate: self.sample_rate,
-            channels: 2,
+            sample_rate: self.decoder.sample_rate(),
+            channels: self.decoder.channels(),
         }))
     }
 

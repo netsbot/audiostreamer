@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use cpal;
 
 use crate::error::Result;
 
@@ -15,6 +16,14 @@ impl SampleBuffer {
             SampleBuffer::I16(v) => v.len(),
             SampleBuffer::I32(v) => v.len(),
             SampleBuffer::F32(v) => v.len(),
+        }
+    }
+
+    pub fn sample_format(&self) -> cpal::SampleFormat {
+        match self {
+            SampleBuffer::I16(_) => cpal::SampleFormat::I16,
+            SampleBuffer::I32(_) => cpal::SampleFormat::I32,
+            SampleBuffer::F32(_) => cpal::SampleFormat::F32,
         }
     }
 

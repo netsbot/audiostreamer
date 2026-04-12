@@ -563,6 +563,7 @@ impl IsoFile {
     }
 
     /// Raw pointer access, needed for clone_sample_description across files.
+    #[allow(dead_code)]
     pub(crate) fn as_ptr(&self) -> *mut GF_ISOFile {
         self.ptr
     }

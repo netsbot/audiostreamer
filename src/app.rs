@@ -1,14 +1,9 @@
-use clap::Parser;
-
 use crate::audio::sink::AudioSink;
 use crate::audio::source::AudioSource;
-use crate::audio::stream::{pump_stream, StreamStats};
-use crate::cli::CliArgs;
+use crate::audio::stream::pump_stream;
 use crate::client::AppleMusicClient;
-use crate::config::{AppConfig, OutputSelection};
-use crate::error::Result;
-use crate::sinks::noop::NoopSink;
 use crate::sinks::playback::PlaybackSink;
+use crate::error::Result;
 use crate::sources::song::Song;
 
 // pub async fn run_from_args() -> Result<()> {
@@ -24,26 +19,18 @@ use crate::sources::song::Song;
 pub async fn run() -> Result<()> {
     let client = AppleMusicClient::new().await.unwrap();
     let mut source = Song::new("635770202", client).await.unwrap();
-
     let mut sink = PlaybackSink::new();
 
     log::info!(
         "starting stream source={} sink={} chunk_size={}",
         source.description(),
         sink.description(),
-        1024
+        2048
     );
 
-    pump_stream(&mut source, &mut sink, 1024).await?;
+    pump_stream(&mut source, &mut sink, 2048).await?;
 
     Ok(())
-}
-
-fn create_sink(output: OutputSelection) -> Box<dyn AudioSink + Send> {
-    match output {
-        OutputSelection::Playback => Box::new(PlaybackSink::new()),
-        OutputSelection::Noop => Box::new(NoopSink::new()),
-    }
 }
 
 // #[cfg(test)]

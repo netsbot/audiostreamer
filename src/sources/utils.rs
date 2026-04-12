@@ -10,6 +10,7 @@ use std::os::fd::FromRawFd;
 
 #[derive(Debug)]
 pub struct MemFile {
+    #[allow(dead_code)]
     pub fd: std::os::unix::prelude::RawFd,
     pub path: String,
     _file: Option<File>,
@@ -42,6 +43,7 @@ impl MemFile {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn unwrap_file(mut self) -> Option<File> {
         self._file.take()
     }
@@ -65,6 +67,8 @@ pub async fn extract_media_playlist(
     codec: Codec,
 ) -> crate::error::Result<(m3u8_rs::MediaPlaylist, String)> {
     let master = client.download_m3u8(m3u8_url).await?;
+    let master = sanitize_master_playlist_text(&master);
+
     let master_url = Url::parse(m3u8_url).unwrap();
     let master_playlist = match m3u8_rs::parse_playlist_res(master.as_bytes()) {
         Ok(Playlist::MasterPlaylist(playlist)) => playlist,
@@ -95,6 +99,83 @@ pub async fn extract_media_playlist(
     Ok((media_playlist, selected_codec_id.unwrap()))
 }
 
+fn sanitize_master_playlist_text(text: &str) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut pending_stream_inf_idx: Option<usize> = None;
+
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Some manifests contain a trailing malformed marker like:
+        // "#P272979488 A697195462 audio songEnhance"
+        // Keep this out of parsing since it can be mis-associated as a variant URI.
+        if is_malformed_song_enhance_marker(line) {
+            continue;
+        }
+
+        if line.starts_with("#EXT-X-STREAM-INF:") {
+            if let Some(idx) = pending_stream_inf_idx.take() {
+                out.remove(idx);
+            }
+            out.push(line.to_string());
+            pending_stream_inf_idx = Some(out.len() - 1);
+            continue;
+        }
+
+        if pending_stream_inf_idx.is_some() {
+            // STREAM-INF must be followed by a URI line immediately.
+            if is_valid_playlist_uri_line(line) {
+                out.push(line.to_string());
+                pending_stream_inf_idx = None;
+                continue;
+            }
+            if let Some(idx) = pending_stream_inf_idx.take() {
+                out.remove(idx);
+            }
+        }
+
+        if line.starts_with('#') {
+            if !line.starts_with("#EXT") {
+                continue;
+            }
+            out.push(line.to_string());
+            continue;
+        }
+
+        if is_valid_playlist_uri_line(line) {
+            out.push(line.to_string());
+        }
+    }
+
+    if let Some(idx) = pending_stream_inf_idx.take() {
+        out.remove(idx);
+    }
+
+    out.join("\n")
+}
+
+fn is_valid_playlist_uri_line(line: &str) -> bool {
+    !line.is_empty() && !line.starts_with('#') && !line.chars().any(char::is_whitespace)
+}
+
+fn is_malformed_song_enhance_marker(line: &str) -> bool {
+    let mut parts = line.split_whitespace();
+    match (parts.next(), parts.next(), parts.next(), parts.next(), parts.next()) {
+        (Some(first), Some(second), Some(third), Some(fourth), None) => {
+            first.starts_with("#P")
+                && first[2..].chars().all(|c| c.is_ascii_digit())
+                && second.starts_with('A')
+                && second[1..].chars().all(|c| c.is_ascii_digit())
+                && third.eq_ignore_ascii_case("audio")
+                && fourth.eq_ignore_ascii_case("songEnhance")
+        }
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Codec {
     #[serde(rename = "alac")]
@@ -114,6 +195,7 @@ pub enum Codec {
 }
 
 impl Codec {
+    #[allow(dead_code)]
     pub fn as_str(self) -> &'static str {
         match self {
             Codec::Alac => "alac",
