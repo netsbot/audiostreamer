@@ -13,10 +13,9 @@ pub struct AlacDecoder {
 
 impl AlacDecoder {
     pub fn new(
-        extra_data: Vec<u8>,
         sample_rate: u32,
-        _channels: u32,
-        _bit_depth: u8,
+        channels: u32,
+        bit_depth: u8,
     ) -> Result<Self> {
         ffmpeg::init().map_err(|e| StreamerError::Message(format!("FFmpeg init failed: {}", e)))?;
 
@@ -31,6 +30,7 @@ impl AlacDecoder {
             (*ptr).sample_rate = sample_rate as i32;
 
             // Set extradata (magic cookie)
+            let extra_data = generate_alac_extradata(sample_rate, channels as u8, bit_depth, 0);
             let extradata = ffmpeg_sys_next::av_malloc(
                 extra_data.len() + ffmpeg_sys_next::AV_INPUT_BUFFER_PADDING_SIZE as usize,
             ) as *mut u8;
@@ -183,4 +183,23 @@ impl std::fmt::Debug for AlacDecoder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AlacDecoder").finish()
     }
+}
+
+fn generate_alac_extradata(sample_rate: u32, channels: u8, bit_depth: u8, bitrate: u32) -> Vec<u8> {
+    let mut data = vec![0u8; 36];
+
+    data[0..4].copy_from_slice(&36u32.to_be_bytes());
+    data[4..8].copy_from_slice(b"alac");
+    data[12..16].copy_from_slice(&4096u32.to_be_bytes());
+    data[16] = 0;
+    data[17] = bit_depth;
+    data[18] = 40;
+    data[19] = 10;
+    data[20] = 14;
+    data[21] = channels;
+    data[26] = 0x60;
+    data[27] = 0x04;
+    data[28..32].copy_from_slice(&bitrate.to_be_bytes());
+    data[32..36].copy_from_slice(&sample_rate.to_be_bytes());
+    data
 }

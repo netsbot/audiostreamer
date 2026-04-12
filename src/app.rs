@@ -17,8 +17,10 @@ use crate::sources::song::Song;
 // }
 
 pub async fn run() -> Result<()> {
-    let client = AppleMusicClient::new().await.unwrap();
-    let mut source = Song::new("635770202", client).await.unwrap();
+    let client = AppleMusicClient::new()
+        .await
+        .map_err(|e| crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}")))?;
+    let mut source = Song::new("635770202", client).await?;
     let mut sink = PlaybackSink::new();
 
     log::info!(

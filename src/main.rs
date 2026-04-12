@@ -2,5 +2,8 @@
 async fn main() {
     env_logger::init();
 
-    audiostreamer::app::run().await.unwrap();
+    if let Err(err) = audiostreamer::app::run().await {
+        eprintln!("error: {err}");
+        std::process::exit(1);
+    }
 }

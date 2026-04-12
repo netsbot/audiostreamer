@@ -1,5 +1,5 @@
 use crate::client::AppleMusicClient;
-use anyhow::anyhow;
+use crate::error::{Result, StreamerError};
 use m3u8_rs::Playlist;
 use regex::Regex;
 use reqwest::Url;
@@ -17,7 +17,7 @@ pub struct MemFile {
 }
 
 impl MemFile {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Result<Self> {
         let fd = unsafe {
             libc::syscall(
                 libc::SYS_memfd_create,
@@ -26,7 +26,7 @@ impl MemFile {
             )
         } as std::os::unix::prelude::RawFd;
         if fd < 0 {
-            return Err(anyhow!("memfd_create failed"));
+            return Err(StreamerError::Message("memfd_create failed".to_string()));
         }
         let path = format!("/proc/self/fd/{}", fd);
         Ok(Self {
@@ -36,7 +36,7 @@ impl MemFile {
         })
     }
 
-    pub fn write_all(&mut self, data: &[u8]) -> anyhow::Result<()> {
+    pub fn write_all(&mut self, data: &[u8]) -> Result<()> {
         if let Some(f) = self._file.as_mut() {
             f.write_all(data)?;
         }
@@ -250,26 +250,3 @@ pub fn segment_key_uri(segment: &m3u8_rs::MediaSegment) -> Option<&str> {
     segment.key.as_ref().and_then(|key| key.uri.as_deref())
 }
 
-pub(crate) fn generate_alac_extradata(sample_rate: u32, channels: u8, bit_depth: u8, bitrate: u32) -> Vec<u8> {
-    let mut data = vec![0u8; 36];
-
-    // ALAC atom header
-    data[0..4].copy_from_slice(&36u32.to_be_bytes());
-    data[4..8].copy_from_slice(b"alac");
-
-    // Samples per frame defaults to 4096 for ALAC
-    data[12..16].copy_from_slice(&4096u32.to_be_bytes());
-    data[16] = 0;
-    data[17] = bit_depth;
-    data[18] = 40;
-    data[19] = 10;
-    data[20] = 14;
-    data[21] = channels;
-    data[26] = 0x60;
-    data[27] = 0x04;
-
-    // Per-file average bitrate
-    data[28..32].copy_from_slice(&bitrate.to_be_bytes());
-    data[32..36].copy_from_slice(&sample_rate.to_be_bytes());
-    data
-}

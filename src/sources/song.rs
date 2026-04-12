@@ -2,7 +2,7 @@ use crate::audio::source::AudioChunk;
 use crate::audio::source::AudioSource;
 use crate::audio::source::SampleBuffer;
 use crate::client::AppleMusicClient;
-use crate::error::StreamerError;
+use crate::error::{Result, StreamerError};
 use crate::sources::utils;
 use crate::sources::utils::MemFile;
 use crate::{am_wrapper, gpac};
@@ -18,10 +18,6 @@ pub struct Song {
     client: AppleMusicClient,
     raw_mp4: MemFile,
     gpac_iso_file: gpac::IsoFile,
-    #[allow(dead_code)]
-    sample_rate: u32,
-    #[allow(dead_code)]
-    bit_depth: u8,
     current_segment: usize,
     next_sample_number: u32,
     base_url: Url,
@@ -33,16 +29,34 @@ impl Song {
     pub async fn new(
         adam_id: &str,
         client: AppleMusicClient,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let m3u8_url = am_wrapper::get_m3u8(adam_id.to_string()).await?;
-        let (media_playlist, codec_id) =
-            utils::extract_media_playlist(&client, &m3u8_url, utils::Codec::Alac).await?;
+    ) -> Result<Self> {
+        let m3u8_url = am_wrapper::get_m3u8(adam_id.to_string())
+            .await
+            .map_err(|e| StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}")))?;
+        let (media_playlist, codec_id) = utils::extract_media_playlist(&client, &m3u8_url, utils::Codec::Alac)
+            .await
+            .map_err(|e| StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}")))?;
 
         let (sample_rate, bit_depth) = utils::parse_alac_quality_from_codec_id(codec_id.as_str());
+        let sample_rate = sample_rate.ok_or_else(|| {
+            StreamerError::Unsupported(format!("could not parse ALAC sample rate from codec id {codec_id}"))
+        })?;
+        let bit_depth = bit_depth.ok_or_else(|| {
+            StreamerError::Unsupported(format!("could not parse ALAC bit depth from codec id {codec_id}"))
+        })?;
 
-        let init_section = media_playlist.segments.first().unwrap().map.clone().unwrap();
+        let init_section = media_playlist
+            .segments
+            .first()
+            .ok_or_else(|| StreamerError::Unsupported(format!("playlist for {adam_id} does not contain an init segment")))?
+            .map
+            .clone()
+            .ok_or_else(|| StreamerError::Unsupported(format!("init segment for {adam_id} does not contain a map section")))?;
 
-        let init_section_url = Url::parse(&m3u8_url)?.join(init_section.uri.as_str())?;
+        let init_section_url = Url::parse(&m3u8_url)
+            .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
+            .join(init_section.uri.as_str())
+            .map_err(|e| StreamerError::Message(format!("invalid init segment URL for {adam_id}: {e}")))?;
         let init_section_data = client
             .download_byte_range(
                 init_section_url.as_str(),
@@ -50,20 +64,14 @@ impl Song {
             )
             .await?;
 
-        let mut raw_mp4 = MemFile::new()?;
-        raw_mp4.write_all(init_section_data.as_slice())?;
+        let mut raw_mp4 = MemFile::new().map_err(|e| StreamerError::Message(format!("failed to create memfd for {adam_id}: {e}")))?;
+        raw_mp4
+            .write_all(init_section_data.as_slice())
+            .map_err(|e| StreamerError::Message(format!("failed to write init segment for {adam_id}: {e}")))?;
 
         let gpac_iso_file = gpac::IsoFile::open_progressive(raw_mp4.path.as_str())?;
 
-        let alac_cookie =
-            utils::generate_alac_extradata(sample_rate.unwrap(), 2, bit_depth.unwrap(), 0);
-
-        let decoder = crate::audio::decoder::AlacDecoder::new(
-            alac_cookie,
-            sample_rate.unwrap(),
-            2,
-            bit_depth.unwrap(),
-        )?;
+        let decoder = crate::audio::decoder::AlacDecoder::new(sample_rate, 2, bit_depth)?;
 
         Ok(Self {
             adam_id: adam_id.to_string(),
@@ -72,11 +80,12 @@ impl Song {
             client,
             gpac_iso_file,
             raw_mp4,
-            sample_rate: sample_rate.unwrap(),
-            bit_depth: bit_depth.unwrap(),
             current_segment: 0,
             next_sample_number: 1,
-            base_url: Url::parse(&m3u8_url)?.join(".")?,
+            base_url: Url::parse(&m3u8_url)
+                .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
+                .join(".")
+                .map_err(|e| StreamerError::Message(format!("failed to derive base URL for {adam_id}: {e}")))?,
             decoder,
         })
     }
@@ -84,7 +93,7 @@ impl Song {
     pub async fn append_next_segment_and_collect_samples(
         &mut self,
         track: u32,
-    ) -> crate::error::Result<Vec<gpac::TrackSample>> {
+    ) -> Result<Vec<gpac::TrackSample>> {
         if self.current_segment >= self.media_playlist.segments.len() {
             return Ok(Vec::new());
         }
@@ -123,24 +132,33 @@ impl AudioSource for Song {
     async fn next_chunk(
         &mut self,
         _max_samples: usize,
-    ) -> crate::error::Result<Option<AudioChunk>> {
+    ) -> Result<Option<AudioChunk>> {
         let new_samples = self.append_next_segment_and_collect_samples(1).await?;
         if new_samples.is_empty() {
             return Ok(None);
         }
 
-        let mut stream = UnixStream::connect("../AppleMusicDecrypt/rust/wrapper/rootfs/data/data/com.apple.android.music/files/decrypt.sock").await.unwrap();
+        let mut stream = UnixStream::connect(
+            "../AppleMusicDecrypt/rust/wrapper/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
+        )
+        .await
+        .map_err(|e| StreamerError::Message(format!("failed to connect decrypt socket: {e}")))?;
         let mut current_state_key = String::new();
         let mut sample_buffer = Vec::new();
         let mut pcm_samples: Option<SampleBuffer> = None;
 
         for sample in new_samples.iter() {
-            let key = self.keys.get(sample.desc_index).unwrap();
+            let key = self.keys.get(sample.desc_index).ok_or_else(|| {
+                StreamerError::Unsupported(format!(
+                    "missing decryption key for sample description index {}",
+                    sample.desc_index
+                ))
+            })?;
 
             if *key != current_state_key {
                 am_wrapper::setup_context(&mut stream, &mut current_state_key, &self.adam_id, key)
                     .await
-                    .unwrap();
+                    .map_err(|e| StreamerError::Message(format!("failed to set decrypt context: {e}")))?;
             }
 
             sample_buffer.clear();

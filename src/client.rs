@@ -1,8 +1,9 @@
-use anyhow::anyhow;
 use m3u8_rs::ByteRange;
 use reqwest::header;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+
+use crate::error::{Result, StreamerError};
 
 #[derive(Debug)]
 pub struct AppleMusicClient {
@@ -11,7 +12,7 @@ pub struct AppleMusicClient {
 }
 
 impl AppleMusicClient {
-    pub async fn new() -> anyhow::Result<Self> {
+    pub async fn new() -> Result<Self> {
         let token = Self::fetch_token().await?;
         let builder = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
@@ -57,7 +58,7 @@ impl AppleMusicClient {
         Ok(resp.bytes().await?.to_vec())
     }
 
-    async fn fetch_token() -> anyhow::Result<String> {
+    async fn fetch_token() -> Result<String> {
         let client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
             .build()?;
@@ -69,7 +70,7 @@ impl AppleMusicClient {
             .await?;
         let index_js_uri = regex::Regex::new(r"/assets/index~[^/]+\.js")?
             .find(&resp)
-            .ok_or_else(|| anyhow!("unable to locate Apple Music index bundle"))?
+            .ok_or_else(|| StreamerError::Message("unable to locate Apple Music index bundle".to_string()))?
             .as_str()
             .to_string();
         let js_resp = client
@@ -80,7 +81,7 @@ impl AppleMusicClient {
             .await?;
         let token = regex::Regex::new(r#"eyJh([^\"]*)"#)?
             .find(&js_resp)
-            .ok_or_else(|| anyhow!("unable to extract Apple Music bearer token"))?
+            .ok_or_else(|| StreamerError::Message("unable to extract Apple Music bearer token".to_string()))?
             .as_str()
             .to_string();
         Ok(token)

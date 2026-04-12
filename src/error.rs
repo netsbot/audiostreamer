@@ -14,6 +14,12 @@ pub enum StreamerError {
     #[error("network error: {0}")]
     Reqwest(#[from] reqwest::Error),
 
+    #[error("regex error: {0}")]
+    Regex(#[from] regex::Error),
+
+    #[error("invalid header value: {0}")]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+
     #[error("invalid config: {0}")]
     InvalidConfig(String),
 
