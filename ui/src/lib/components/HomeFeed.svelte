@@ -9,7 +9,10 @@
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playSong } from "$lib/playbackStore";
 
-  let { openAlbum = (id: string) => {} } = $props();
+  let {
+    openAlbum = (id: string) => {},
+    openPlaylist = (id: string, type: string = "playlists") => {},
+  } = $props();
 
   let recommendations = $state<any[]>([]);
   let resourceMap = $state<Record<string, any>>({});
@@ -359,8 +362,7 @@
         duration_ms: item.attributes.durationInMillis,
       });
     } else if (type === "playlists" || type === "library-playlists") {
-      // Could navigate to playlist view in the future — for now open as album-like
-      openAlbum(item.id);
+      openPlaylist(item.id, type);
     }
   }
 

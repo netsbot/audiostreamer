@@ -10,13 +10,16 @@
   import { fade, fly } from "svelte/transition";
   import ArrowLeft from "lucide-svelte/icons/chevron-left";
   import AlbumView from "./AlbumView.svelte";
+  import PlaylistView from "./PlaylistView.svelte";
   import SearchHeader from "./SearchHeader.svelte";
   import SearchResults from "./SearchResults.svelte";
   import HomeFeed from "./HomeFeed.svelte";
 
   let searchQuery = $state("");
-  let activeView = $state("home"); // 'home', 'search', 'album'
+  let activeView = $state("home"); // 'home', 'search', 'album', 'playlist'
   let selectedAlbumId = $state("");
+  let selectedPlaylistId = $state("");
+  let selectedPlaylistType = $state("playlists");
 
   let searchResults = $state({
     top: [] as any[],
@@ -115,6 +118,12 @@
     selectedAlbumId = id;
     activeView = "album";
   }
+
+  function openPlaylist(id: string, type = "playlists") {
+    selectedPlaylistId = id;
+    selectedPlaylistType = type;
+    activeView = "playlist";
+  }
 </script>
 
 <main
@@ -130,6 +139,7 @@
     <SearchResults 
       searchResults={searchResults} 
       openAlbum={openAlbum} 
+      openPlaylist={openPlaylist}
       clearSearch={clearSearch} 
       getArtworkUrl={getArtworkUrl}
     />
@@ -147,7 +157,19 @@
     </div>
   {/if}
 
+  {#if activeView === "playlist"}
+    <div in:fade={{ duration: 300 }}>
+      <button
+        class="mb-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm"
+        onclick={() => activeView = (searchQuery ? 'search' : 'home')}
+      >
+        <ArrowLeft class="size-4" /> Back
+      </button>
+      <PlaylistView playlistId={selectedPlaylistId} playlistType={selectedPlaylistType} />
+    </div>
+  {/if}
+
   {#if activeView === "home"}
-    <HomeFeed {openAlbum} />
+    <HomeFeed {openAlbum} {openPlaylist} />
   {/if}
 </main>

@@ -10,6 +10,7 @@
   let { 
     searchResults, 
     openAlbum = (id: string) => {}, 
+    openPlaylist = (id: string, type: string = "playlists") => {},
     clearSearch = () => {},
     getArtworkUrl = (artwork: any, size?: number) => artwork?.url 
   } = $props();
@@ -61,6 +62,8 @@
             onclick={() => {
               if (item.type === 'songs') {
                 playSong(item);
+              } else if (item.type === 'playlists' || item.type === 'library-playlists') {
+                openPlaylist(item.id, item.type);
               } else {
                 openAlbum(item.id);
               }
@@ -218,7 +221,10 @@
       </div>
       <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
         {#each searchResults.playlists as playlist}
-          <div class="flex-shrink-0 w-40 group cursor-pointer">
+          <div
+            class="flex-shrink-0 w-40 group cursor-pointer"
+            onclick={() => openPlaylist(playlist.id, playlist.type || 'playlists')}
+          >
             <div class="aspect-square rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
               <img
                 class="w-full h-full object-cover"
