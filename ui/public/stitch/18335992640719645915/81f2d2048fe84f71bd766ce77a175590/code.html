@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sonic Editorial - Now Playing</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#e8e8e8",
+                    "background": "#f9f9f9",
+                    "on-primary-fixed-variant": "#93001a",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed": "#002021",
+                    "secondary": "#5d5e63",
+                    "surface-container": "#eeeeee",
+                    "on-secondary-container": "#626267",
+                    "tertiary-fixed-dim": "#6cd6db",
+                    "outline": "#926e6c",
+                    "on-tertiary-fixed-variant": "#004f52",
+                    "surface-bright": "#f9f9f9",
+                    "secondary-fixed-dim": "#c6c6cb",
+                    "inverse-on-surface": "#f0f1f1",
+                    "outline-variant": "#e7bcba",
+                    "surface-container-low": "#f3f3f4",
+                    "surface-tint": "#bf0025",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#f3ffff",
+                    "on-tertiary": "#ffffff",
+                    "primary-container": "#e70e31",
+                    "surface-variant": "#e2e2e2",
+                    "error": "#ba1a1a",
+                    "inverse-surface": "#2f3131",
+                    "on-background": "#1a1c1c",
+                    "on-surface": "#1a1c1c",
+                    "tertiary": "#00676a",
+                    "secondary-fixed": "#e3e2e7",
+                    "on-primary-container": "#fffbff",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#ffb3b0",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed": "#1a1b1f",
+                    "on-secondary-fixed-variant": "#46464b",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#ffdad8",
+                    "secondary-container": "#e0dfe4",
+                    "on-surface-variant": "#5e3f3e",
+                    "surface-container-highest": "#e2e2e2",
+                    "inverse-primary": "#ffb3b0",
+                    "primary": "#bb0024",
+                    "tertiary-fixed": "#8af3f8",
+                    "surface": "#f9f9f9",
+                    "surface-dim": "#dadada",
+                    "tertiary-container": "#008286",
+                    "on-primary-fixed": "#410006"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-layering-via-bg-shift {
+            transition: background-color 0.3s ease;
+        }
+        .scale-98-on-click:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body overflow-hidden h-screen flex">
+<!-- SideNavBar Component -->
+<aside class="hidden md:flex flex-col h-full p-4 bg-slate-100/50 dark:bg-slate-900/50 h-screen w-64 border-r border-transparent font-['Inter'] tracking-tight text-sm font-medium tonal-layering-via-bg-shift">
+<div class="mb-10 px-4">
+<span class="text-xl font-bold tracking-tighter text-slate-900 dark:text-slate-100">Sonic Editorial</span>
+</div>
+<nav class="flex flex-col gap-1 flex-grow">
+<!-- Listen Now (Active) -->
+<a class="flex items-center gap-3 px-4 py-2.5 text-red-600 dark:text-red-500 font-bold bg-white dark:bg-slate-800 rounded-lg shadow-sm scale-98-on-click transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="play_circle">play_circle</span>
+<span>Listen Now</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span>Browse</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="radio">radio</span>
+<span>Radio</span>
+</a>
+<div class="mt-6 mb-2 px-4 text-[10px] uppercase tracking-widest text-on-surface-variant font-bold opacity-50">Your Collection</div>
+<a class="flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="library_music">library_music</span>
+<span>Library</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="playlist_play">playlist_play</span>
+<span>Playlists</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 px-4 flex items-center gap-3">
+<img alt="User Profile" class="w-8 h-8 rounded-full object-cover" data-alt="close-up portrait of a professional man with a kind expression against a neutral studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeCQEmpUDoen9OydtHlOj4v41qC1bY9lfNOy25SNA2v5A4dwlG_751e0R6j0X2xvhP_vuY8REfnVhFja9xMnKODIx1B8QOWSqjQud9LjhTluC_vkLBaFqwBO145AXbUkAaTX8gGu7nUKIehOKOoppsaUqVP02BYH2cMWk8FHwoFeTm448jZqRbKsNYjsKKGCP4wH8WFtoQM6fFjK_49xqMMNNqzoYf4MCPK9Ecw6LIAcm1zcerP3UcY28neu9wb18LRMG-ttTc7qw5"/>
+<span class="font-semibold text-slate-900">Alex Chen</span>
+</div>
+</aside>
+<main class="flex-grow flex flex-col relative overflow-hidden">
+<!-- TopNavBar Component -->
+<header class="flex items-center justify-between px-8 w-full z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl w-full h-16 sticky top-0 font-['Inter'] font-semibold no-border-tonal-contrast">
+<div class="flex items-center gap-4 w-1/3">
+<div class="relative w-full max-w-xs">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg py-1.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary/20" placeholder="Search" type="text"/>
+</div>
+</div>
+<div class="text-lg font-black text-slate-900 dark:text-slate-100 tracking-tighter">The Sonic Editorial</div>
+<div class="flex items-center gap-6 justify-end w-1/3">
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined" data-icon="account_circle">account_circle</span></button>
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined" data-icon="settings">settings</span></button>
+</div>
+</header>
+<!-- Dynamic Now Playing Canvas -->
+<div class="flex-grow relative flex items-center justify-center p-8 md:p-12 lg:p-20 overflow-hidden">
+<!-- Immersive Background Blur -->
+<div class="absolute inset-0 -z-10 opacity-30 blur-[120px] scale-150 transition-all duration-1000 bg-gradient-to-br from-primary via-purple-500 to-blue-600"></div>
+<div class="grid lg:grid-cols-2 gap-12 lg:gap-24 w-full max-w-7xl h-full items-center">
+<!-- Album Art Column -->
+<div class="flex flex-col items-center lg:items-end">
+<div class="relative group aspect-square w-full max-w-[500px] shadow-[0_32px_64px_-12px_rgba(187,0,36,0.15)] rounded-2xl overflow-hidden transition-transform duration-500 hover:scale-[1.02]">
+<img alt="Album Cover" class="w-full h-full object-cover" data-alt="abstract album art featuring vibrant fluid gradients of deep crimson, ultraviolet, and electric blue with metallic textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnjnCmRCdrkvRDTDq3T4gmrie0rMJsPy65VQG8HZifEpjQnW68xChPSQHmfkK5MDqCHWeH5q5ez0G8sB0Qe9wTw0V4XMWxTZBMjR6KW31j8F5RpL79gwqgtvOwJXmr3WX7XTJ4G7bEHu7NZ8zTvQCDdaF73veC0fRLTSFJYuNc3Ns-D9HoTjWkxkgKfGhFMxzJVKCqR-tfYJPF_3Jz3xhvogWFNLiQcrDh23GBidRO-AL9krG1yCMzsAYMG7CKef10Qjl8dm91AYi0"/>
+<div class="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors"></div>
+</div>
+</div>
+<!-- Lyrics / Metadata Column -->
+<div class="flex flex-col h-[500px] justify-center text-center lg:text-left">
+<div class="mb-10">
+<h1 class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight mb-2 text-on-surface">Midnight City</h1>
+<h2 class="text-xl md:text-2xl font-medium text-primary tracking-wide">M83 — Hurry Up, We're Dreaming</h2>
+</div>
+<!-- Immersive Lyrics View -->
+<div class="flex-grow overflow-y-auto space-y-8 pr-4 custom-scrollbar mask-fade">
+<p class="text-2xl md:text-3xl font-bold text-on-surface leading-tight opacity-100">Waiting in a car</p>
+<p class="text-2xl md:text-3xl font-bold text-on-surface/40 leading-tight">Waiting for a ride in the dark</p>
+<p class="text-2xl md:text-3xl font-bold text-on-surface/40 leading-tight">At night the city grows</p>
+<p class="text-2xl md:text-3xl font-bold text-on-surface/40 leading-tight">Look at the horizon line</p>
+<p class="text-2xl md:text-3xl font-bold text-on-surface/40 leading-tight">The evening sun will sparkle in the eyes</p>
+</div>
+<div class="mt-8 flex items-center justify-center lg:justify-start gap-4">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/20 scale-98-on-click transition-all flex items-center gap-2">
+<span class="material-symbols-outlined fill" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+                            Add to Library
+                        </button>
+<button class="bg-secondary-container text-on-secondary-fixed px-6 py-3 rounded-full font-bold scale-98-on-click transition-all">
+<span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar / Player Bar -->
+<footer class="fixed bottom-0 w-full h-24 z-50 flex justify-between items-center px-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl glass-lip-top-border shadow-2xl font-['Inter'] text-xs font-bold uppercase tracking-widest transition-transform liquid-depth-gradients">
+<!-- Left: Current Info -->
+<div class="w-1/4 flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
+<img alt="Mini Artwork" class="w-full h-full object-cover" data-alt="minimalist square album art with deep red and violet color palette" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC69oU2DzsHgUYMDkipKXRlH7tm34lBSycOvnJfiUpRemDz-FfN5z53WHbOpjPSO2U47qpPY-7paID7N5699qFYxba2dUHeWMGIFY0QmkS4zFvKg8shCYrZ2fPrytB0nIA3LoKaKniufFZXENh5Ai22_9BKN9g34iDKhH-V1XLmnPxlhvcRqQI6fnbCVVh3ZDgWXOhPwU_MHl-nl87e6-gu0vuOBR7Y4la-3yEXO5p5drJtipHfimziMLV6JhhZFWoJuFm-o8tSpJnF"/>
+</div>
+<div class="hidden sm:block overflow-hidden">
+<div class="text-on-surface text-[13px] font-bold truncate">Midnight City</div>
+<div class="text-on-surface-variant text-[11px] font-medium truncate opacity-70">M83</div>
+</div>
+</div>
+<!-- Center: Controls -->
+<div class="flex flex-col items-center gap-2 w-2/4 max-w-xl">
+<div class="flex items-center gap-8">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors scale-110"><span class="material-symbols-outlined" data-icon="shuffle">shuffle</span></button>
+<button class="text-on-surface hover:text-primary transition-colors scale-110"><span class="material-symbols-outlined text-2xl" data-icon="skip_previous">skip_previous</span></button>
+<button class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:scale-110 transition-transform"><span class="material-symbols-outlined text-3xl" data-icon="pause" style="font-variation-settings: 'FILL' 1;">pause</span></button>
+<button class="text-on-surface hover:text-primary transition-colors scale-110"><span class="material-symbols-outlined text-2xl" data-icon="skip_next">skip_next</span></button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors scale-110"><span class="material-symbols-outlined" data-icon="repeat">repeat</span></button>
+</div>
+<div class="w-full flex items-center gap-3">
+<span class="text-[10px] text-on-surface-variant w-8 text-right">2:14</span>
+<div class="flex-grow h-1.5 bg-outline-variant/30 rounded-full overflow-hidden relative group cursor-pointer">
+<div class="absolute left-0 top-0 h-full bg-primary w-[60%] rounded-full"></div>
+<div class="absolute left-[60%] top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant w-8">-1:49</span>
+</div>
+</div>
+<!-- Right: Actions -->
+<div class="w-1/4 flex items-center justify-end gap-5">
+<div class="hidden lg:flex items-center gap-3 w-32">
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="volume_down">volume_down</span>
+<div class="flex-grow h-1 bg-outline-variant/30 rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant w-[75%] rounded-full"></div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="volume_up">volume_up</span>
+</div>
+<button class="text-red-600 scale-110"><span class="material-symbols-outlined" data-icon="graphic_eq">graphic_eq</span></button>
+<button class="text-on-surface-variant hover:text-on-surface scale-110"><span class="material-symbols-outlined" data-icon="queue_music">queue_music</span></button>
+<button class="text-on-surface-variant hover:text-on-surface scale-110"><span class="material-symbols-outlined" data-icon="airplay">airplay</span></button>
+</div>
+</footer>
+</main>
+<style>
+        .mask-fade {
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 0px;
+        }
+        .glass-lip-top-border {
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</body></html>

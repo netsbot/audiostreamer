@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#e8e8e8",
+                    "background": "#f9f9f9",
+                    "on-primary-fixed-variant": "#93001a",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed": "#002021",
+                    "secondary": "#5d5e63",
+                    "surface-container": "#eeeeee",
+                    "on-secondary-container": "#626267",
+                    "tertiary-fixed-dim": "#6cd6db",
+                    "outline": "#926e6c",
+                    "on-tertiary-fixed-variant": "#004f52",
+                    "surface-bright": "#f9f9f9",
+                    "secondary-fixed-dim": "#c6c6cb",
+                    "inverse-on-surface": "#f0f1f1",
+                    "outline-variant": "#e7bcba",
+                    "surface-container-low": "#f3f3f4",
+                    "surface-tint": "#bf0025",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#f3ffff",
+                    "on-tertiary": "#ffffff",
+                    "primary-container": "#e70e31",
+                    "surface-variant": "#e2e2e2",
+                    "error": "#ba1a1a",
+                    "inverse-surface": "#2f3131",
+                    "on-background": "#1a1c1c",
+                    "on-surface": "#1a1c1c",
+                    "tertiary": "#00676a",
+                    "secondary-fixed": "#e3e2e7",
+                    "on-primary-container": "#fffbff",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#ffb3b0",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed": "#1a1b1f",
+                    "on-secondary-fixed-variant": "#46464b",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#ffdad8",
+                    "secondary-container": "#e0dfe4",
+                    "on-surface-variant": "#5e3f3e",
+                    "surface-container-highest": "#e2e2e2",
+                    "inverse-primary": "#ffb3b0",
+                    "primary": "#bb0024",
+                    "tertiary-fixed": "#8af3f8",
+                    "surface": "#f9f9f9",
+                    "surface-dim": "#dadada",
+                    "tertiary-container": "#008286",
+                    "on-primary-fixed": "#410006"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scale-98-on-click:active { transform: scale(0.98); }
+        .glass-lip { border-top: 1px solid rgba(231, 188, 186, 0.15); }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-full p-4 bg-slate-100/50 dark:bg-slate-900/50 h-screen w-64 border-r border-transparent">
+<div class="mb-8 px-2">
+<span class="text-xl font-bold tracking-tighter text-slate-900 dark:text-slate-100">Sonic Editorial</span>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click font-['Inter'] tracking-tight text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="play_circle">play_circle</span>
+                    Listen Now
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-red-600 dark:text-red-500 font-bold bg-white dark:bg-slate-800 rounded-lg shadow-sm scale-98-on-click font-['Inter'] tracking-tight text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+                    Browse
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click font-['Inter'] tracking-tight text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="radio">radio</span>
+                    Radio
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click font-['Inter'] tracking-tight text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="library_music">library_music</span>
+                    Library
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors scale-98-on-click font-['Inter'] tracking-tight text-sm font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="playlist_play">playlist_play</span>
+                    Playlists
+                </a>
+</nav>
+<div class="mt-auto p-2">
+<div class="flex items-center gap-3">
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover" data-alt="Professional headshot of a young creative professional with warm lighting and a soft grey studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBDzhv5DnElua_CF_5wSrlbL7UA6gD415cEYBsXFhp7DM5g6TB0rSWomXxtDWTJP2KoGpU1UDf_xOkhv2-luHsprTJeLm9hxleFzQeA6Aj6MiRa4xCFsgaVFhHWpwcDj-hg7lTuhtuH4NDP3ROUwR_GhHs-h3O7q4HObbnvBrSTXPQrD8OA5AJhmNeVnKv2nF08o4DERQzR-Mlfjirv3BaG1W5ev-qHBK6s9TLT0Dn79B2OM-y56JSy7mr3P1PkHQVtOw0j05kvlDJ"/>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">Alex Rivera</span>
+<span class="text-xs text-on-surface-variant">Premium Member</span>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-full relative overflow-y-auto">
+<!-- TopNavBar -->
+<header class="flex items-center justify-between px-8 w-full z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl w-full h-16 sticky top-0">
+<div class="flex items-center gap-4 flex-1">
+<span class="text-lg font-black text-slate-900 dark:text-slate-100 hidden lg:block">The Sonic Editorial</span>
+<div class="relative w-full max-w-md ml-4">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-2.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 text-sm font-medium transition-all" placeholder="Artists, Songs, Lyrics and More" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-4">
+<button class="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined text-slate-500" data-icon="account_circle">account_circle</span>
+</button>
+<button class="hover:opacity-80 transition-opacity p-2 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined text-slate-500" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<div class="p-8 pb-32 space-y-12">
+<!-- Recent & Trending (Asymmetric Layout) -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-1 space-y-6">
+<h2 class="text-2xl font-black tracking-tight text-on-surface">Recent Searches</h2>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-3 rounded-xl hover:bg-surface-container-low transition-colors group cursor-pointer">
+<img class="w-12 h-12 rounded-lg object-cover" data-alt="Abstract colorful neon light patterns against a dark background with fluid movement and glowing trails" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuyOTvfxqrscIA0cfx4R_ORm9FnqHh7TPgpUmPzH9BWgefhYxPlHIl9SpK5EUaSsEsgvnsxZlzB9VjeMfoPV5Yz-nmK5mW7xvgNSD7K4CDLusu20Z2yccp7Llt4DkHH02PUk1CC1FbkXpsCRTxe5qZitPJJ1wuzBpFuBdv-e44ImVz7CPY1fx00Ew-kn2pMcxxeWaE99KJKR2EeASrqTr-sR8zJpRJQKqDQrJCOtwz4XAoGvv8SEMHA_dyD7X2x5QBHcrtGGg5Awn2"/>
+<div class="flex-1">
+<p class="font-bold text-on-surface">The Weeknd</p>
+<p class="text-sm text-on-surface-variant">Artist</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100" data-icon="close">close</span>
+</div>
+<div class="flex items-center gap-4 p-3 rounded-xl hover:bg-surface-container-low transition-colors group cursor-pointer">
+<img class="w-12 h-12 rounded-lg object-cover" data-alt="Close-up of a professional DJ controller with glowing blue and red lights in a dark club environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPMtyVpmW-ygPB63V_efbp6MwLCHryQ682HWh_fuoFyzGRIZUFNUWTEHw8wBRSmHCkZ8jh5TKxfr2jB4tIb7psQktJssi9wA6s8PmQ_JJkV97QUNNpxgpyt-E8msh6jkIvlXD6QSua753N940EcdGf71c7Aora-f5imIsDD-HccvOtcd6_jyUdyqSTqk4c0IyUGtxR4_945pkg6sfvlB2csLNtSKTLLThK8TA4oQd_9KlC2YCwoDaGpZyd8KcEKo680wai9hmEEZ5r"/>
+<div class="flex-1">
+<p class="font-bold text-on-surface">Summer Vibes 2024</p>
+<p class="text-sm text-on-surface-variant">Playlist</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100" data-icon="close">close</span>
+</div>
+</div>
+</div>
+<div class="lg:col-span-2 space-y-6">
+<div class="flex justify-between items-end">
+<h2 class="text-2xl font-black tracking-tight text-on-surface">Trending Now</h2>
+<button class="text-primary text-sm font-bold uppercase tracking-widest hover:underline">See All</button>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-6">
+<div class="space-y-2 group cursor-pointer">
+<div class="relative aspect-square overflow-hidden rounded-xl shadow-sm">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A vintage electric guitar resting against a stack of amplifiers in a sun-drenched studio apartment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAom4ewmLzEB6RCd56x-vddPKriKGwK4Ykj0ajmhePJCFkh-F7IMhVSKitwqu9ACKGHYqnitupNWN-ObHDJd49Tn9jL6Hvk9I518vBawD5t_E0b6PF02jNaWdgS119ekzqG1qBAJxqmLWgUlhV53uM69Ajqxed2QQ9rqvh3ViDiivisEL0PE_RFy_IhLl8jO7CeA3h7FQ_GiB90c5pxyLT7UhHnMNiYWROE_v4LNaEP6c4Efs_eMybUX3ZEKU9FXxIuyXtOAh1hppI"/>
+<div class="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
+</div>
+<div>
+<p class="font-bold text-sm leading-tight text-on-surface">Indie Gold</p>
+<p class="text-xs text-on-surface-variant">Essential Hits</p>
+</div>
+</div>
+<div class="space-y-2 group cursor-pointer">
+<div class="relative aspect-square overflow-hidden rounded-xl shadow-sm">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Crowd of people silhouettes at a concert with bright stage lights and purple atmospheric smoke" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG1c_qjDKmGsgN1nYLTc9XBhBrwq9aiqLetsQA1t3Pjx9oyFgzg9M7FvX9SDNJEySkJQEP19aA6ONSdK0rKCjs5BC1qBWeZRXi-Lu_Fvt_VBtqt33miN0jwnJKZCWmlXOQ71lZHEtdnelt2EyK8C7fYYysq8k5q2d43IkjoVYT39ZIGcCuwf_3UFhqoocfR3TjOO2w0_P0OPCM73O75ZYvvmTVkzuSfpE_vbXuOC6qZ7bZ2sjJ0MfuvZbl9FAqI9nOw3gIiJ8z_mQn"/>
+</div>
+<div>
+<p class="font-bold text-sm leading-tight text-on-surface">Late Night Jazz</p>
+<p class="text-xs text-on-surface-variant">Smooth Classics</p>
+</div>
+</div>
+<div class="hidden sm:block space-y-2 group cursor-pointer">
+<div class="relative aspect-square overflow-hidden rounded-xl shadow-sm">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Modern minimalist recording studio with high-end microphones and soundproofing panels in warm light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBycZpZez8cnXWNW7GjnqkhN3JQmK6dQWNEBNd8ocewDM2qhVN5uCOZJU5greQ-WEJjWipXcVV4ZSLLvp4rEJLuKuW_254MEwQ6ezUCWyiIxg_TaeKLOSKF99K-CjAL6Qz0WOTT1aKphLAG0MMuhkdCHa0r4WFgVjdyJbip3V9_M5LLdQvgAqnjvczeLNihmplw8oQEG23DZt5zItHjoStAEqswap1Ftj67HXNq136X92ugnT7I5u3KD2GTa67ebRHTtFlDF-YBAP8Y"/>
+</div>
+<div>
+<p class="font-bold text-sm leading-tight text-on-surface">Deep Focus</p>
+<p class="text-xs text-on-surface-variant">Lo-fi Beats</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Browse Categories (Bento Grid) -->
+<section class="space-y-6">
+<h2 class="text-2xl font-black tracking-tight text-on-surface">Browse Categories</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+<!-- Pop -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-pink-500 to-rose-600 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Pop</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Vibrant pop music aesthetics with bubblegum pink and neon blue lighting on a stylish performer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDX46q2KQZQClZlDLGOi6Nx4Q--fXuEtg2kxYZFeQR2yHMfuB_KIYSmtAJ0pyAUQuYIEXDAENwtF3bTSFqADRiX_VTa169YlFpcUeIAJsvtyGm3zxUnLAWJCmsKVLYhThd32FAd2OWFI9MocG0EAKriO_tX57O7xMprspRA0C9b72eCzAzypevA0lM7iMLh37DsS-3sN-dxd7cwykwrGebPD_-FDfIlyy5N2Is3Nm74nG9ICIbzgoiC_kWB1ufoMt6hD4w8OFiWfFMB"/>
+</div>
+<!-- Rock -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-orange-500 to-red-700 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Rock</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Classic rock aesthetic featuring a close-up of a weathered leather jacket and electric guitar strings" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAL4kvSI-32mvQDVtD2B6l45ePehtOGf2NOSHHKZ8wfmmS8zDIMkMwOzdeZFtpK_sInQ_ZFYgxcx4b6VNnBPZSQdREsJnyCPoNSzpiQXAN3A-Bv-gRRK__FRf8Vf6wU98wZKZfZK1FtfBfseWmEmiTjgzDgBzCrrjPMjDv_jMDV7NafzenhZ5ewnClJRJ8zFR2MSe8QdGRPGW55QUoghF4oup2bcshKC366wPQ0C6Jr6uFW11mnCLEUifJsaoOwEGRHtfIUe7MZNAe6"/>
+</div>
+<!-- Hip-Hop -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-indigo-600 to-violet-800 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Hip-Hop</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Urban hip hop scene with neon lights reflecting on wet city streets and graffiti art" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBb8bZFyN36IgjQPMzp2CCa2HIKR0-tWzhpBtvf8P3FenYZrnCZFqGBr3CqVa_i7eFns1smu4dQNml61LzsemUKJrcsICc0Dt0RaDrKp-_pYHQ4URfgEaiG3IkAa20Pbb6ik_UhiAsC0sPqK4v8L5jyLfnEn-1dao0bBTmqXxvB-XvoA7BksmmyWO4dSf6zNrwfzidVX1nz9J8rB3FkI1EzJfuFwX56MBdXp590B9SnavPbuxp0vijCiapinEAcj0mltS2W3Xujld3g"/>
+</div>
+<!-- Electronic -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Electronic</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Abstract digital landscape with glowing grid lines and futuristic geometric shapes in cyan light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdejbe_7RK2Boy62qHPlEysotUL5hbQ2Qef6TuO0LSQp6m4rZiytCrTGkiZnzhSw3ilEbA_4dybsnwaLsIBn1JxKFk546fyZOVxSEiapkNI0MAPYdPrBk2GTaFAlITlVhjtbS4XcW56vUzDcq2V1WAjJUbcvxFUxQe9_vi9FQjuj-P1Qj6p8bbhvwhaLLOdz8CLEV6uXNWHUpHOrat3_2OsuoAZ3l9Y6IpLGvdGjPtE9Ulo7dRDXVIfwCBdNWVs0eU6lF_1vq962i9"/>
+</div>
+<!-- R&B -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-amber-400 to-orange-600 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">R&amp;B</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Silky smooth R&amp;B aesthetic with warm amber lighting and soft textures of velvet and gold" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRJ4hSKGmnVi4ChAr_OFwpPtwkoyoEAXYTrjL79_AtXzNUO22YIeQVO8jRSygre6dAO8ymef0P6uD_7PNJC98TzOR8xGhUhV5gNabyMHh6JBL05vGEmoYXATNaYsbRgwjfTFsD6b3Gboqpvug17Dekfz-MRl0N2RjHYIzw4hH5GZand6idYohbxcEMoHs83QYi37Re2ePPuQhvEbE-MrYAiHWiqT1J-fJ1X96HsmOXnXqxU0-WWWtml2sgIzCQ3Eqp-dWuyIRAWVh8"/>
+</div>
+<!-- Classical -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-slate-600 to-slate-800 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Classical</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Elegant grand piano keys with soft moody lighting and deep shadows in a concert hall" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3EGgoPW0jmhIIHtaENAyXyvi0J-Ydsxmbx7QnSefHhzNcV-dGHCeTDP_7uL0-3IvckMNv8pT5A5aVIzVsiMvFRp7tJXwbl1kjMwf8AB31Sal1HjQFbAjrzAQHEPnCeFQ1weNLO-5ljXHixnjeDlM-uUj6Jvw40-xK3Sr_HjqLB8Cr6o4KAvKAvSS3BxA4GXPSbr1S94p0H6xJRwm0trLmwSMiTIOtFg1vbN0QEu3SGORStMqCg4iDQDPYkTSCKdypZEODFmDRtVvQ"/>
+</div>
+<!-- Country -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-emerald-600 to-teal-800 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Country</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Rustic country theme with a wooden barn door and golden fields at sunset" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOqb7Q78bE9JXqzVoellJO3_-8k0FlS_HBSvZBYx9iNTiGxHnojgWzXMTf3y0pK2Gzh_1z3Lc3Se04I0iAKr6LhALxuCHrKEwjnpaJAWi4TNWByEhP95PDMhB-WxV9D5Cs6xJ8VcV2TgwViEgn0H5Capp2qPeFbJPvmkWdevFeGwe0p7BY-JbFBsxyVOjmJF1Ct3uWEcFBwGteJC4xsQGMVOFjaHzq_bAGbK1uFst_OxfZp9CezqR6cFZtiqnBN9cK1AB0dNAnN6hh"/>
+</div>
+<!-- Latin -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-yellow-500 to-orange-500 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Latin</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Energetic latin music scene with warm festive lighting and vibrant textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBh04onp_zylylNTyHFfLmNVaw4fki7e4aXf56BcQI0H-4f7umxV_W9M1XlxUe9avaV94wkL--_WnEBx8CsNaslZA1T4kwv0QeYklax_nmFcNSp4aA8agNMu_ftQWMTXIAu82rYoHQ3878SOVx9-xVY6kr24f5P6t9-YBhY-kESI1dpjrXTwnYp8awTbpq-1k_tXY4W7Nf31aDWhFsK9sUU7WuKXDAhzk5gTCKvr3ssz9iIhJA5C81Unq1KqQZCj8HI1i0pCqK6Y9AC"/>
+</div>
+<!-- Metal -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-zinc-800 to-black shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Metal</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Intense metal music aesthetic with dramatic high-contrast lighting and industrial metal textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEwqwtjL9jFV3Fbuu_UTi54VePoPUWMSreQycA0ZljbHfS-zbiv0wFYcL51F7X291sVyqws8ATLc70QwQ6HLRE5NRvc-pIVEpV4pp8p8ouagHbaqdGZUMxuZWJZJHQv1SWbJM2lSJGcacAca4H_ZW9SLueTn1mzSONALiD4QzLtrQhZCW81wlg5sGlCxXW-u1u5STcWiiDSFcKu4T8Qqe6HXrSkLO3mYaUTV3UEJGNGCC5iwz5BDMymlstRSOaF3-aljujko3uhAgL"/>
+</div>
+<!-- Soul -->
+<div class="relative aspect-[16/10] rounded-xl overflow-hidden group cursor-pointer bg-gradient-to-br from-purple-700 to-fuchsia-900 shadow-md">
+<span class="absolute top-4 left-4 text-white font-black text-xl tracking-tighter">Soul</span>
+<img class="absolute -right-4 -bottom-4 w-24 h-24 rotate-12 opacity-60 group-hover:scale-110 transition-transform" data-alt="Atmospheric soul music vibe with soft purple backlighting and silhouettes of vintage instruments" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWYWdZMZ3XzqWKtS95i_Hz0AHCd6Ms6OFBryzOUteA_Smz0pIpO81p9tLGSNVEs6fTwzsGyfxZDqeEg_PJzxvyYvnjIPyRe50Z7MOfYA16M65dDVtjQIrpl1BPjLJjg-mItIci4t7QlfyXtjYSiP30Wag1lp2OZ_bVE7ewCefqjtqBKWqMry9Tl_OM7i4PHcrnoI7i04CbXrn_GFVic4ctMEEhn21W9HEInSJHK_vYWT_LDDmfHlu32572rl14GtXyfPCHaC6tr4yX"/>
+</div>
+</div>
+</section>
+</div>
+<!-- BottomNavBar (Player Bar) -->
+<footer class="flex justify-between items-center px-10 w-full z-50 fixed bottom-0 h-24 bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl glass-lip shadow-2xl">
+<!-- Now Playing Info -->
+<div class="flex items-center gap-4 w-1/3">
+<img class="w-14 h-14 rounded-lg shadow-lg" data-alt="Album art showing an abstract sculpture in a desert landscape under a clear blue sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxL--rFm3G1S_FCadVwKDoM5ybhxE39fz9WtcBFI8dOH707IIFl09g7M_QyZRWFQqfql6pn-n-pjpmeXE96aWLdfYLP3NgueqZYaJmUHdjKnXhEIRMIw__lxvLdB5bLOmP95LMqSPXq0UE3KtE1OMBh4fFoLlZeVht2Zhx5ZvizE7XUpdMq6WkGZM6rm9pFrTgyiCDTAIiqPLrZ8RYFYtBFMabEWlcnU-9AnAgFioaXDvjp4zx_tVCOb5WUQYU0F3cmhu4hOSfTPfz"/>
+<div class="hidden sm:block overflow-hidden">
+<p class="font-bold text-on-surface truncate">Blinding Lights</p>
+<p class="text-xs text-on-surface-variant uppercase tracking-widest font-bold">The Weeknd</p>
+</div>
+</div>
+<!-- Controls -->
+<div class="flex flex-col items-center gap-2 w-1/3">
+<div class="flex items-center gap-6">
+<button class="text-slate-400 hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="shuffle">shuffle</span>
+</button>
+<button class="text-on-surface hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="skip_previous">skip_previous</span>
+</button>
+<button class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white hover:scale-105 transition-transform shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-3xl" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<button class="text-on-surface hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" data-icon="skip_next">skip_next</span>
+</button>
+<button class="text-slate-400 hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="repeat">repeat</span>
+</button>
+</div>
+<!-- Progress Bar -->
+<div class="w-full max-w-md flex items-center gap-3">
+<span class="text-[10px] text-on-surface-variant font-bold tabular-nums">1:42</span>
+<div class="flex-1 h-1 bg-outline-variant/30 rounded-full relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 bg-primary w-1/3 rounded-full"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-bold tabular-nums">3:20</span>
+</div>
+</div>
+<!-- Extra Actions -->
+<div class="flex items-center justify-end gap-6 w-1/3">
+<button class="text-slate-400 hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="lyrics">lyrics</span>
+</button>
+<button class="text-slate-400 hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="playlist_play">playlist_play</span>
+</button>
+<div class="flex items-center gap-2 w-24">
+<span class="material-symbols-outlined text-slate-400 text-sm" data-icon="volume_up">volume_up</span>
+<div class="flex-1 h-1 bg-outline-variant/30 rounded-full">
+<div class="h-full bg-slate-400 w-3/4 rounded-full"></div>
+</div>
+</div>
+</div>
+</footer>
+</main>
+</div>
+</body></html>

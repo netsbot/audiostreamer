@@ -55,5 +55,8 @@ pub struct AudioChunk {
 #[async_trait]
 pub trait AudioSource: Send {
     async fn next_chunk(&mut self, max_samples: usize) -> Result<Option<AudioChunk>>;
+    async fn seek(&mut self, _seconds: f64) -> Result<()> {
+        Err(crate::error::StreamerError::Unsupported("seeking not supported for this source".to_string()))
+    }
     fn description(&self) -> &str;
 }

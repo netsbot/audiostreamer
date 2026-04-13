@@ -64,7 +64,8 @@ impl IsoFile {
     pub fn open_read(path: &str) -> Result<Self> {
         ensure_gpac_init();
         let c_path = CString::new(path).map_err(|e| StreamerError::Message(e.to_string()))?;
-        let ptr = unsafe { gf_isom_open(c_path.as_ptr(), GF_ISOM_OPEN_READ_DUMP, std::ptr::null()) };
+        let ptr =
+            unsafe { gf_isom_open(c_path.as_ptr(), GF_ISOM_OPEN_READ_DUMP, std::ptr::null()) };
         if ptr.is_null() {
             Err(StreamerError::Message(format!(
                 "gf_isom_open failed for {path}"
@@ -88,17 +89,11 @@ impl IsoFile {
         let c_path = CString::new(path).map_err(|e| StreamerError::Message(e.to_string()))?;
         let mut ptr: *mut GF_ISOFile = std::ptr::null_mut();
         let mut missing = 0u64;
-        let err = unsafe {
-            gf_isom_open_progressive(
-                c_path.as_ptr(),
-                0,
-                0,
-                0,
-                &mut ptr,
-                &mut missing,
-            )
-        };
-        if err != GF_OK && err != 1 /* GF_ISOM_INCOMPLETE_FILE */ {
+        let err =
+            unsafe { gf_isom_open_progressive(c_path.as_ptr(), 0, 0, 0, &mut ptr, &mut missing) };
+        if err != GF_OK && err != 1
+        /* GF_ISOM_INCOMPLETE_FILE */
+        {
             return Err(StreamerError::Message(format!(
                 "gf_isom_open_progressive failed for {path}: {}",
                 unsafe { CStr::from_ptr(gf_error_to_string(err)).to_string_lossy() }
@@ -203,7 +198,8 @@ impl IsoFile {
     /// Best-effort count of currently available samples for a track in a
     /// growing fragmented file.
     pub fn available_sample_count(&self, track: u32) -> u32 {
-        self.sample_count(track).max(self.fragmented_samples_count(track))
+        self.sample_count(track)
+            .max(self.fragmented_samples_count(track))
     }
 
     pub fn sample_description_count(&self, track: u32) -> u32 {

@@ -1,9 +1,9 @@
 use crate::audio::source::SampleBuffer;
 use crate::error::StreamerError;
-use ffmpeg_next::{self as ffmpeg, Packet};
-use ffmpeg_next::format::Sample;
 use ffmpeg_next::format::sample::Type as SampleType;
+use ffmpeg_next::format::Sample;
 use ffmpeg_next::frame;
+use ffmpeg_next::{self as ffmpeg, Packet};
 
 pub type Result<T> = std::result::Result<T, StreamerError>;
 
@@ -12,11 +12,7 @@ pub struct AlacDecoder {
 }
 
 impl AlacDecoder {
-    pub fn new(
-        sample_rate: u32,
-        channels: u32,
-        bit_depth: u8,
-    ) -> Result<Self> {
+    pub fn new(sample_rate: u32, channels: u32, bit_depth: u8) -> Result<Self> {
         ffmpeg::init().map_err(|e| StreamerError::Message(format!("FFmpeg init failed: {}", e)))?;
 
         let codec = ffmpeg::decoder::find(ffmpeg::codec::Id::ALAC)
@@ -49,7 +45,9 @@ impl AlacDecoder {
             .audio()
             .map_err(|e| StreamerError::Message(format!("Failed to get audio decoder: {}", e)))?;
 
-        Ok(Self { decoder: audio_decoder })
+        Ok(Self {
+            decoder: audio_decoder,
+        })
     }
 
     pub fn channels(&self) -> u16 {
@@ -88,23 +86,20 @@ fn decode_frame_native(frame: &frame::Audio) -> Result<SampleBuffer> {
     match frame.format() {
         Sample::I16(SampleType::Packed) => {
             let data = frame.data(0);
-            let samples: &[i16] = unsafe {
-                std::slice::from_raw_parts(data.as_ptr() as *const i16, data.len() / 2)
-            };
+            let samples: &[i16] =
+                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const i16, data.len() / 2) };
             Ok(SampleBuffer::I16(samples.to_vec()))
         }
         Sample::I32(SampleType::Packed) => {
             let data = frame.data(0);
-            let samples: &[i32] = unsafe {
-                std::slice::from_raw_parts(data.as_ptr() as *const i32, data.len() / 4)
-            };
+            let samples: &[i32] =
+                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const i32, data.len() / 4) };
             Ok(SampleBuffer::I32(samples.to_vec()))
         }
         Sample::F32(SampleType::Packed) => {
             let data = frame.data(0);
-            let samples: &[f32] = unsafe {
-                std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len() / 4)
-            };
+            let samples: &[f32] =
+                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len() / 4) };
             Ok(SampleBuffer::F32(samples.to_vec()))
         }
         Sample::I16(SampleType::Planar) => {

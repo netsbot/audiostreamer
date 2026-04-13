@@ -2,6 +2,10 @@
 name = "audiostreamer"
 version = "0.1.0"
 edition = "2021"
+default-run = "audiostreamer"
+
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
 anyhow = "1"
@@ -20,6 +24,12 @@ libc = "0.2.184"
 cpal = "0.15"
 ffmpeg-next = { version = "8.1", features = ["codec", "software-resampling", "format"] }
 ffmpeg-sys-next = "8.1"
+tauri = { version = "2.10.3", features = ["devtools"] }
+tauri-plugin-log = "2"
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
+souvlaki = "0.7"
+url = "2"
+serde_json = "1"
 
 [dev-dependencies]
 tempfile = "3"

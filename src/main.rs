@@ -1,9 +1,6 @@
-#[tokio::main]
-async fn main() {
-    env_logger::init();
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-    if let Err(err) = audiostreamer::app::run().await {
-        eprintln!("error: {err}");
-        std::process::exit(1);
-    }
+fn main() {
+    audiostreamer::tauri_app::run();
 }

@@ -1,0 +1,16 @@
+{
+  "name": "audiostreamer-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "ui:dev": "pnpm --dir ui dev",
+    "ui:build": "pnpm --dir ui build",
+    "ui:check": "pnpm --dir ui check",
+    "tauri:dev": "tauri dev -c tauri.conf.json",
+    "tauri:build": "tauri build -c tauri.conf.json",
+    "cli:run": "cargo run --bin cli"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
+  }
+}

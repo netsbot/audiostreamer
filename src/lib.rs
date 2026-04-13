@@ -1,11 +1,13 @@
+pub mod am_wrapper;
 pub mod app;
 pub mod audio;
 pub mod cli;
+pub mod client;
 pub mod config;
 pub mod error;
-pub mod sinks;
-pub mod sources;
-pub mod am_wrapper;
-pub mod client;
 pub mod gpac;
 pub mod gpac_ffi;
+pub mod media;
+pub mod sinks;
+pub mod sources;
+pub mod tauri_app;

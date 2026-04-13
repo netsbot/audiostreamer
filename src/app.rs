@@ -2,8 +2,8 @@ use crate::audio::sink::AudioSink;
 use crate::audio::source::AudioSource;
 use crate::audio::stream::pump_stream;
 use crate::client::AppleMusicClient;
-use crate::sinks::playback::PlaybackSink;
 use crate::error::Result;
+use crate::sinks::playback::{PlaybackControls, PlaybackSink};
 use crate::sources::song::Song;
 
 // pub async fn run_from_args() -> Result<()> {
@@ -16,22 +16,64 @@ use crate::sources::song::Song;
 //     run(config).await
 // }
 
-pub async fn run() -> Result<()> {
-    let client = AppleMusicClient::new()
-        .await
-        .map_err(|e| crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}")))?;
-    let mut source = Song::new("635770202", client).await?;
-    let mut sink = PlaybackSink::new();
+use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+pub async fn execute_playback(
+    adam_id: String,
+    paused: Arc<AtomicBool>,
+    samples_played: Arc<AtomicU64>,
+    active_sink: Arc<Mutex<Option<PlaybackControls>>>,
+) -> Result<()> {
+    execute_playback_at(adam_id, paused, samples_played, active_sink, 0.0).await
+}
+
+pub async fn execute_playback_at(
+    adam_id: String,
+    paused: Arc<AtomicBool>,
+    samples_played: Arc<AtomicU64>,
+    active_sink: Arc<Mutex<Option<PlaybackControls>>>,
+    start_time: f64,
+) -> Result<()> {
+    let client = AppleMusicClient::new().await.map_err(|e| {
+        crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}"))
+    })?;
+
+    let mut source = Song::new(&adam_id, client).await?;
+    if start_time > 0.0 {
+        source.seek(start_time).await?;
+    }
+
+    let mut sink = PlaybackSink::new_with_counter(samples_played.clone());
+    let controls = sink.controls();
+    
+    // Register the sink for instant control
+    {
+        let mut active = active_sink.lock().await;
+        *active = Some(controls);
+    }
 
     log::info!(
-        "starting stream source={} sink={} chunk_size={}",
+        "starting stream at {}s source={} sink={} chunk_size={}",
+        start_time,
         source.description(),
         sink.description(),
         2048
     );
 
-    pump_stream(&mut source, &mut sink, 2048).await?;
+    pump_stream(&mut source, &mut sink, 2048, paused).await?;
+    
+    // Unregister sink
+    {
+        let mut active = active_sink.lock().await;
+        *active = None;
+    }
 
+    Ok(())
+}
+
+pub async fn run() -> Result<()> {
     Ok(())
 }
 

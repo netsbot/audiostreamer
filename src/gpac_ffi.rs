@@ -3,7 +3,12 @@
 //! Only the subset of the libgpac API used by this project is declared here.
 //! Types are kept minimal — opaque pointers where possible.
 
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case, dead_code)]
+#![allow(
+    non_camel_case_types,
+    non_upper_case_globals,
+    non_snake_case,
+    dead_code
+)]
 
 use std::os::raw::{c_char, c_void};
 
@@ -241,10 +246,7 @@ extern "C" {
         trackNumber: u32_,
     ) -> u32_;
 
-    pub fn gf_isom_get_track_id(
-        isom_file: *mut GF_ISOFile,
-        trackNumber: u32_,
-    ) -> u32_;
+    pub fn gf_isom_get_track_id(isom_file: *mut GF_ISOFile, trackNumber: u32_) -> u32_;
 
     pub fn gf_isom_get_fragmented_samples_info(
         isom_file: *mut GF_ISOFile,

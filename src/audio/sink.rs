@@ -7,5 +7,11 @@ use crate::error::Result;
 pub trait AudioSink: Send {
     async fn write_chunk(&mut self, chunk: &AudioChunk) -> Result<()>;
     async fn close(&mut self) -> Result<()>;
+    async fn pause(&mut self) -> Result<()> {
+        Ok(())
+    }
+    async fn resume(&mut self) -> Result<()> {
+        Ok(())
+    }
     fn description(&self) -> &str;
 }

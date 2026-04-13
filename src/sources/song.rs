@@ -26,37 +26,56 @@ pub struct Song {
 }
 
 impl Song {
-    pub async fn new(
-        adam_id: &str,
-        client: AppleMusicClient,
-    ) -> Result<Self> {
+    pub async fn new(adam_id: &str, client: AppleMusicClient) -> Result<Self> {
+        println!("[Song] fetching media playlist for: {}", adam_id);
         let m3u8_url = am_wrapper::get_m3u8(adam_id.to_string())
             .await
-            .map_err(|e| StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}")))?;
-        let (media_playlist, codec_id) = utils::extract_media_playlist(&client, &m3u8_url, utils::Codec::Alac)
-            .await
-            .map_err(|e| StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}")))?;
+            .map_err(|e| {
+                StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}"))
+            })?;
+        let (media_playlist, codec_id) =
+            utils::extract_media_playlist(&client, &m3u8_url, utils::Codec::Alac)
+                .await
+                .map_err(|e| {
+                    StreamerError::Message(format!(
+                        "failed to load media playlist for {adam_id}: {e}"
+                    ))
+                })?;
 
         let (sample_rate, bit_depth) = utils::parse_alac_quality_from_codec_id(codec_id.as_str());
         let sample_rate = sample_rate.ok_or_else(|| {
-            StreamerError::Unsupported(format!("could not parse ALAC sample rate from codec id {codec_id}"))
+            StreamerError::Unsupported(format!(
+                "could not parse ALAC sample rate from codec id {codec_id}"
+            ))
         })?;
         let bit_depth = bit_depth.ok_or_else(|| {
-            StreamerError::Unsupported(format!("could not parse ALAC bit depth from codec id {codec_id}"))
+            StreamerError::Unsupported(format!(
+                "could not parse ALAC bit depth from codec id {codec_id}"
+            ))
         })?;
 
         let init_section = media_playlist
             .segments
             .first()
-            .ok_or_else(|| StreamerError::Unsupported(format!("playlist for {adam_id} does not contain an init segment")))?
+            .ok_or_else(|| {
+                StreamerError::Unsupported(format!(
+                    "playlist for {adam_id} does not contain an init segment"
+                ))
+            })?
             .map
             .clone()
-            .ok_or_else(|| StreamerError::Unsupported(format!("init segment for {adam_id} does not contain a map section")))?;
+            .ok_or_else(|| {
+                StreamerError::Unsupported(format!(
+                    "init segment for {adam_id} does not contain a map section"
+                ))
+            })?;
 
         let init_section_url = Url::parse(&m3u8_url)
             .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
             .join(init_section.uri.as_str())
-            .map_err(|e| StreamerError::Message(format!("invalid init segment URL for {adam_id}: {e}")))?;
+            .map_err(|e| {
+                StreamerError::Message(format!("invalid init segment URL for {adam_id}: {e}"))
+            })?;
         let init_section_data = client
             .download_byte_range(
                 init_section_url.as_str(),
@@ -64,10 +83,14 @@ impl Song {
             )
             .await?;
 
-        let mut raw_mp4 = MemFile::new().map_err(|e| StreamerError::Message(format!("failed to create memfd for {adam_id}: {e}")))?;
+        let mut raw_mp4 = MemFile::new().map_err(|e| {
+            StreamerError::Message(format!("failed to create memfd for {adam_id}: {e}"))
+        })?;
         raw_mp4
             .write_all(init_section_data.as_slice())
-            .map_err(|e| StreamerError::Message(format!("failed to write init segment for {adam_id}: {e}")))?;
+            .map_err(|e| {
+                StreamerError::Message(format!("failed to write init segment for {adam_id}: {e}"))
+            })?;
 
         let gpac_iso_file = gpac::IsoFile::open_progressive(raw_mp4.path.as_str())?;
 
@@ -83,9 +106,13 @@ impl Song {
             current_segment: 0,
             next_sample_number: 1,
             base_url: Url::parse(&m3u8_url)
-                .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
+                .map_err(|e| {
+                    StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}"))
+                })?
                 .join(".")
-                .map_err(|e| StreamerError::Message(format!("failed to derive base URL for {adam_id}: {e}")))?,
+                .map_err(|e| {
+                    StreamerError::Message(format!("failed to derive base URL for {adam_id}: {e}"))
+                })?,
             decoder,
         })
     }
@@ -111,6 +138,7 @@ impl Song {
             .join(segment_uri.as_str())
             .map_err(|e| StreamerError::Message(format!("invalid segment URL: {e}")))?;
 
+        println!("[Song] downloading segment {}/{} ({} bytes)", self.current_segment + 1, self.media_playlist.segments.len(), byte_range.length);
         let segment_data = self
             .client
             .download_byte_range(segment_url.as_str(), byte_range)
@@ -129,17 +157,14 @@ impl Song {
 
 #[async_trait]
 impl AudioSource for Song {
-    async fn next_chunk(
-        &mut self,
-        _max_samples: usize,
-    ) -> Result<Option<AudioChunk>> {
+    async fn next_chunk(&mut self, _max_samples: usize) -> Result<Option<AudioChunk>> {
         let new_samples = self.append_next_segment_and_collect_samples(1).await?;
         if new_samples.is_empty() {
             return Ok(None);
         }
 
         let mut stream = UnixStream::connect(
-            "../AppleMusicDecrypt/rust/wrapper/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
+            "wrapper/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
         )
         .await
         .map_err(|e| StreamerError::Message(format!("failed to connect decrypt socket: {e}")))?;
@@ -158,7 +183,9 @@ impl AudioSource for Song {
             if *key != current_state_key {
                 am_wrapper::setup_context(&mut stream, &mut current_state_key, &self.adam_id, key)
                     .await
-                    .map_err(|e| StreamerError::Message(format!("failed to set decrypt context: {e}")))?;
+                    .map_err(|e| {
+                        StreamerError::Message(format!("failed to set decrypt context: {e}"))
+                    })?;
             }
 
             sample_buffer.clear();
@@ -177,6 +204,36 @@ impl AudioSource for Song {
             sample_rate: self.decoder.sample_rate(),
             channels: self.decoder.channels(),
         }))
+    }
+
+    async fn seek(&mut self, seconds: f64) -> Result<()> {
+        let mut accumulated_time = 0.0;
+        let mut target_segment = 0;
+        
+        for (i, segment) in self.media_playlist.segments.iter().enumerate() {
+            if (accumulated_time + segment.duration) as f64 > seconds {
+                target_segment = i;
+                break;
+            }
+            accumulated_time += segment.duration;
+            target_segment = i;
+        }
+        
+        log::info!("[Song] seeking to {}s -> segment {}/{}", seconds, target_segment + 1, self.media_playlist.segments.len());
+        
+        // Reset playback state
+        self.current_segment = target_segment;
+        
+        // Note: next_sample_number is tricky because we're jumping segments.
+        // In fMP4, sample numbers are often global or relative to the moof.
+        // Since we are using GPAC's read_new_samples, resetting next_sample_number to 1 
+        // and letting it find "new" samples in the newly appended segments might work 
+        // if we are starting a "fresh" file, but we are appending.
+        
+        // Actually, the most robust way to seek in this architecture is to stay with the current file 
+        // but just jump the segment download.
+        
+        Ok(())
     }
 
     fn description(&self) -> &str {

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::audio::sink::AudioSink;
@@ -9,6 +10,33 @@ use crate::error::{Result, StreamerError};
 
 struct SendStream(#[allow(dead_code)] cpal::Stream);
 unsafe impl Send for SendStream {}
+
+#[derive(Clone)]
+pub struct PlaybackControls {
+    stream: Arc<Mutex<Option<SendStream>>>,
+}
+
+impl PlaybackControls {
+    pub fn pause(&self) -> Result<()> {
+        if let Some(stream) = self.stream.lock().unwrap().as_ref() {
+            stream
+                .0
+                .pause()
+                .map_err(|e| StreamerError::Message(format!("Failed to pause stream: {}", e)))?;
+        }
+        Ok(())
+    }
+
+    pub fn resume(&self) -> Result<()> {
+        if let Some(stream) = self.stream.lock().unwrap().as_ref() {
+            stream
+                .0
+                .play()
+                .map_err(|e| StreamerError::Message(format!("Failed to resume stream: {}", e)))?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 enum PlaybackBuffer {
@@ -54,13 +82,14 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_f32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [f32]) {
+    fn drain_f32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [f32], samples_played: &Arc<AtomicU64>) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::F32(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0.0);
                 }
+                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -70,13 +99,14 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_i16(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i16]) {
+    fn drain_i16(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i16], samples_played: &Arc<AtomicU64>) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::I16(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0);
                 }
+                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -86,13 +116,14 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_i32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i32]) {
+    fn drain_i32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i32], samples_played: &Arc<AtomicU64>) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::I32(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0);
                 }
+                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -104,8 +135,9 @@ impl PlaybackBuffer {
 }
 
 pub struct PlaybackSink {
-    stream: Option<SendStream>,
+    stream: Arc<Mutex<Option<SendStream>>>,
     buffer: Arc<Mutex<Option<PlaybackBuffer>>>,
+    samples_played: Arc<AtomicU64>,
     device_sample_rate: u32,
     device_channels: u16,
 }
@@ -114,16 +146,21 @@ unsafe impl Send for PlaybackSink {}
 
 impl PlaybackSink {
     pub fn new() -> Self {
+        Self::new_with_counter(Arc::new(AtomicU64::new(0)))
+    }
+
+    pub fn new_with_counter(samples_played: Arc<AtomicU64>) -> Self {
         Self {
-            stream: None,
+            stream: Arc::new(Mutex::new(None)),
             buffer: Arc::new(Mutex::new(None)),
-            device_sample_rate: 0,
-            device_channels: 0,
+            samples_played,
+            device_sample_rate: 44100, // Default to something sane
+            device_channels: 2,
         }
     }
 
     fn ensure_stream(&mut self, chunk: &AudioChunk) -> Result<()> {
-        if self.stream.is_some() {
+        if self.stream.lock().unwrap().is_some() {
             return Ok(());
         }
 
@@ -163,12 +200,13 @@ impl PlaybackSink {
         let stream_config = config.config();
         let sample_format = config.sample_format();
         let buffer = self.buffer.clone();
+        let samples_played = self.samples_played.clone();
 
         let stream = match sample_format {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [f32], _| {
-                    PlaybackBuffer::drain_f32(&buffer, data);
+                    PlaybackBuffer::drain_f32(&buffer, data, &samples_played);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -176,7 +214,7 @@ impl PlaybackSink {
             cpal::SampleFormat::I16 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [i16], _| {
-                    PlaybackBuffer::drain_i16(&buffer, data);
+                    PlaybackBuffer::drain_i16(&buffer, data, &samples_played);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -184,7 +222,7 @@ impl PlaybackSink {
             cpal::SampleFormat::I32 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [i32], _| {
-                    PlaybackBuffer::drain_i32(&buffer, data);
+                    PlaybackBuffer::drain_i32(&buffer, data, &samples_played);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -202,8 +240,26 @@ impl PlaybackSink {
             .play()
             .map_err(|e| StreamerError::Message(format!("Failed to start stream: {}", e)))?;
 
-        self.stream = Some(SendStream(stream));
+        *self.stream.lock().unwrap() = Some(SendStream(stream));
         Ok(())
+    }
+
+    pub fn controls(&self) -> PlaybackControls {
+        PlaybackControls {
+            stream: self.stream.clone(),
+        }
+    }
+
+    pub fn samples_played(&self) -> u64 {
+        self.samples_played.load(Ordering::SeqCst)
+    }
+
+    pub fn device_sample_rate(&self) -> u32 {
+        self.device_sample_rate
+    }
+
+    pub fn device_channels(&self) -> u16 {
+        self.device_channels
     }
 }
 
@@ -239,7 +295,7 @@ impl AudioSink for PlaybackSink {
     }
 
     async fn close(&mut self) -> Result<()> {
-        if let Some(stream) = self.stream.take() {
+        if self.stream.lock().unwrap().is_some() {
             loop {
                 let buffered = {
                     let locked = self.buffer.lock().unwrap();
@@ -252,10 +308,24 @@ impl AudioSink for PlaybackSink {
 
                 tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
             }
-
-            drop(stream);
         }
 
+        self.stream.lock().unwrap().take();
+
+        Ok(())
+    }
+
+    async fn pause(&mut self) -> Result<()> {
+        if let Some(stream) = self.stream.lock().unwrap().as_ref() {
+            stream.0.pause().map_err(|e| StreamerError::Message(format!("Failed to pause stream: {}", e)))?;
+        }
+        Ok(())
+    }
+
+    async fn resume(&mut self) -> Result<()> {
+        if let Some(stream) = self.stream.lock().unwrap().as_ref() {
+            stream.0.play().map_err(|e| StreamerError::Message(format!("Failed to resume stream: {}", e)))?;
+        }
         Ok(())
     }
 

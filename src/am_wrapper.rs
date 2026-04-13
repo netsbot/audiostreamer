@@ -1,4 +1,3 @@
-use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, ORIGIN, USER_AGENT};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,47 +19,24 @@ pub async fn get_m3u8(adam_id: String) -> Result<String> {
 }
 
 pub async fn get_token() -> Result<String> {
-    let base_url = "https://music.apple.com";
-
-    let homepage_html = reqwest::get(base_url).await?.text().await?;
-
-    let js_re = Regex::new(r"/assets/index~[^/]+\.js")
-        .map_err(|e| StreamerError::Message(format!("failed to compile index JS regex: {e}")))?;
-    let index_js_uri = js_re
-        .find(&homepage_html)
-        .ok_or_else(|| StreamerError::Message("Could not find index JS URI".to_string()))?
-        .as_str();
-
-    let js_url = format!("{}{}", base_url, index_js_uri);
-    let js_content = reqwest::get(&js_url).await?.text().await?;
-
-    let token_re = Regex::new(r#"eyJh([^\"]*)"#)
-        .map_err(|e| StreamerError::Message(format!("failed to compile token regex: {e}")))?;
-    let token = token_re
-        .find(&js_content)
-        .ok_or_else(|| StreamerError::Message("Could not find token in JS".to_string()))?
-        .as_str()
-        .to_string();
-
-    Ok(token)
+    crate::client::AppleMusicClient::fetch_token().await
 }
 
 pub async fn get_music_token() -> Result<String> {
-    let mut buf = String::new();
-    let mut file = File::open("wrapper/rootfs/data/data/com.apple.android.music/files/MUSIC_TOKEN").await?;
+    static CACHE: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
 
-    file.read_to_end(unsafe { buf.as_mut_vec() }).await?;
+    CACHE.get_or_try_init(|| async {
+        log::info!("Loading Music User Token from disk...");
+        let mut buf = String::new();
+        let mut file =
+            File::open("wrapper/rootfs/data/data/com.apple.android.music/files/MUSIC_TOKEN").await?;
 
-    Ok(buf)
-
-    // Ok("Aly9pn/PmymqF/e2kTZXuxhm9th/nZj4rIkygNL+yQDE7kcxxmlUJPTG0HA+7B94LYPRixtnssl817gqrCRccDuh0hmGP9R39ZQPu2mCW9waESN01cSi7ScDlwbULqqIbfFRhO61ORi/rKKZ2YajW3M06ZHhyufbrdqZpx0h7UAVsE+1tYe/nxFcM1mxA8tb4scVzu3hCoO1xab6fMTRNQPiZD9WG/8vSWwlfnvu+qpY4Tceeg==".to_string())
+        file.read_to_string(&mut buf).await?;
+        Ok(buf.trim().to_string())
+    }).await.cloned()
 }
 
-pub async fn get_lyrics(
-    adam_id: &str,
-    region: &str,
-    language: &str,
-) -> Result<String> {
+pub async fn get_lyrics(adam_id: &str, region: &str, language: &str) -> Result<String> {
     let url = format!(
         "https://amp-api.music.apple.com/v1/catalog/{}/songs/{}/syllable-lyrics?l[lyrics]={}&extend=ttmlLocalizations&l[script]=en-Latn",
         region, adam_id, language
@@ -71,8 +47,14 @@ pub async fn get_lyrics(
         USER_AGENT,
         HeaderValue::from_static("Music/5.7 Android/10 model/Pixel6GR1YH build/1234 (dt:66)"),
     );
-    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", get_token().await?))?);
-    headers.insert("media-user-token", HeaderValue::from_str(get_music_token().await?.as_str())?);
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", get_token().await?))?,
+    );
+    headers.insert(
+        "media-user-token",
+        HeaderValue::from_str(get_music_token().await?.as_str())?,
+    );
     headers.insert(ORIGIN, HeaderValue::from_static("https://music.apple.com"));
 
     let resp = reqwest::Client::new()

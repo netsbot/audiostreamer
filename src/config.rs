@@ -21,12 +21,9 @@ impl AppConfig {
             FileConfig::default()
         };
 
-        let output = cli
-            .output
-            .map(OutputSelection::from)
-            .unwrap_or_else(|| {
-                OutputSelection::parse(&file_config.output.mode).unwrap_or(OutputSelection::Noop)
-            });
+        let output = cli.output.map(OutputSelection::from).unwrap_or_else(|| {
+            OutputSelection::parse(&file_config.output.mode).unwrap_or(OutputSelection::Noop)
+        });
 
         let input = cli
             .input
