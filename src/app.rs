@@ -5,6 +5,8 @@ use crate::client::AppleMusicClient;
 use crate::error::Result;
 use crate::sinks::playback::{PlaybackControls, PlaybackSink};
 use crate::sources::song::Song;
+use crate::cli::CliArgs;
+use clap::Parser;
 
 // pub async fn run_from_args() -> Result<()> {
 //     let cli = CliArgs::parse();
@@ -74,6 +76,25 @@ pub async fn execute_playback_at(
 }
 
 pub async fn run() -> Result<()> {
+    let cli = CliArgs::parse();
+
+    if let Some(adam_id) = cli.adam_id {
+        let paused = Arc::new(AtomicBool::new(false));
+        let samples_played = Arc::new(AtomicU64::new(0));
+        let active_sink = Arc::new(Mutex::new(None));
+
+        log::info!("Starting playback for Adam ID: {}", adam_id);
+        
+        execute_playback(
+            adam_id,
+            paused,
+            samples_played,
+            active_sink,
+        ).await?;
+    } else {
+        println!("No Adam ID provided. Use --help for usage information.");
+    }
+
     Ok(())
 }
 

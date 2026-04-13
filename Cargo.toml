@@ -13,23 +13,26 @@ async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
 log = "0.4"
-reqwest = { version = "0.13" }
+reqwest = { version = "0.12" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs"] }
 toml = "1.1"
 m3u8-rs = "6"
-regex = "1.12.3"
-libc = "0.2.184"
+regex = "1"
+libc = "0.2"
 cpal = "0.15"
 ffmpeg-next = { version = "8.1", features = ["codec", "software-resampling", "format"] }
 ffmpeg-sys-next = "8.1"
-tauri = { version = "2.10.3", features = ["devtools"] }
+#tauri = { version = "2", default-features = false, features = ["cef"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
-souvlaki = "0.7"
-url = "2"
-serde_json = "1"
+
 
 [dev-dependencies]
 tempfile = "3"
+
+#[patch.crates-io.tauri]
+#git = "https://github.com/tauri-apps/tauri"
+#branch = "feat/cef"

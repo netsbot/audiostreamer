@@ -16,6 +16,9 @@ pub struct CliArgs {
 
     #[arg(long, help = "Chunk size used in stream loop")]
     pub chunk_size: Option<usize>,
+
+    #[arg(long, help = "Apple Music Adam ID to play")]
+    pub adam_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

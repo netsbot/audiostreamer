@@ -1,10 +1,13 @@
 use log::LevelFilter;
 
 #[tauri::command]
+async fn run_stream() -> Result<(), String> {
+    crate::app::run().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn get_apple_music_token() -> Result<String, String> {
-    crate::client::AppleMusicClient::fetch_token()
-        .await
-        .map_err(|e| e.to_string())
+    crate::client::AppleMusicClient::fetch_token().await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -12,11 +15,6 @@ async fn get_apple_music_user_token() -> Result<String, String> {
     crate::am_wrapper::get_music_token()
         .await
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn run_stream() -> Result<(), String> {
-    crate::app::run().await.map_err(|e| e.to_string())
 }
 
 pub fn run() {
@@ -35,7 +33,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_stream,
             get_apple_music_token,
-            get_apple_music_user_token,
+            get_apple_music_user_token
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

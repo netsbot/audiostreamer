@@ -14,6 +14,18 @@
     getArtworkUrl = (artwork: any, size?: number) => artwork?.url 
   } = $props();
 
+  function artworkSrc(artwork: any, size: number) {
+    if (!artwork) return "";
+    if (typeof artwork === "string") {
+      return artwork
+        .replace("{w}", size.toString())
+        .replace("{h}", size.toString())
+        .replace("{f}", "webp")
+        .replace("{c}", "");
+    }
+    return getArtworkUrl(artwork, size);
+  }
+
   async function playSong(item: any) {
     console.log("playing song:", item.id);
     await playSongInStore(item.id, {
@@ -60,7 +72,7 @@
                 : 'rounded-xl'} overflow-hidden aspect-square mb-3 shadow-2xl relative border border-white/5 bg-zinc-900 transition-all duration-300 group-hover:border-white/20"
             >
               <img
-                src={getArtworkUrl(item.attributes.artwork?.url || "", 400)}
+                src={artworkSrc(item.attributes.artwork, 400)}
                 class="w-full h-full object-cover"
                 alt={item.attributes.name}
               />
@@ -238,7 +250,7 @@
             <div class="aspect-video rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
               <img
                 class="w-full h-full object-cover"
-                src={getArtworkUrl(mv.attributes.artwork.url, 600)}
+                src={artworkSrc(mv.attributes.artwork, 600)}
                 alt={mv.attributes.name}
               />
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -272,7 +284,7 @@
               {#if station.attributes.artwork}
                 <img
                   class="w-full h-full object-cover"
-                  src={getArtworkUrl(station.attributes.artwork.url, 400)}
+                  src={artworkSrc(station.attributes.artwork, 400)}
                   alt={station.attributes.name}
                 />
               {:else}
