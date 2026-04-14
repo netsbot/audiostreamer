@@ -22,6 +22,17 @@
     seekTo(percentage * $totalTime);
   }
 
+  function handleSeekKeydown(e: KeyboardEvent) {
+    if (!$totalTime) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      seekTo(Math.max(0, $currentTime - 5));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      seekTo(Math.min($totalTime, $currentTime + 5));
+    }
+  }
+
   function formatTime(seconds: number): string {
     if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -73,7 +84,17 @@
     </div>
     <div class="flex items-center gap-3 w-full">
       <span class="text-[10px] text-zinc-500 font-medium font-mono w-10">{formatTime($currentTime)}</span>
-      <div class="flex-1 px-1 group relative cursor-pointer py-4 -my-4" onclick={handleSeek}>
+      <div
+        class="flex-1 px-1 group relative cursor-pointer py-4 -my-4"
+        role="slider"
+        tabindex="0"
+        aria-label="Seek"
+        aria-valuemin="0"
+        aria-valuemax={$totalTime}
+        aria-valuenow={$currentTime}
+        onclick={handleSeek}
+        onkeydown={handleSeekKeydown}
+      >
         <div class="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
             <div 
                 class="h-full bg-red-600 transition-all duration-300 ease-out" 

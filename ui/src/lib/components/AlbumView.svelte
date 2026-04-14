@@ -5,8 +5,8 @@
   import { fade, fly } from "svelte/transition";
   import Play from "lucide-svelte/icons/play";
   import Shuffle from "lucide-svelte/icons/shuffle";
-  import Clock from "lucide-svelte/icons/clock";
   import Loader2 from "lucide-svelte/icons/loader-2";
+  import TrackList from "./TrackList.svelte";
 
   let { albumId = "" } = $props();
 
@@ -78,6 +78,13 @@
       playTrack(firstTrack);
     }
   }
+
+  function getSquareEditorialVideo(attrs: any): string | null {
+    const editorial = attrs?.editorialVideo;
+    return editorial?.motionSquareVideo1x1?.video
+      || editorial?.motionDetailSquare?.video
+      || null;
+  }
 </script>
 
 <div class="container mx-auto px-4 pb-24">
@@ -91,11 +98,22 @@
       <!-- Hero Section -->
       <div class="flex flex-col md:flex-row gap-10 mb-12 items-end">
         <div class="w-64 h-64 md:w-80 md:h-80 flex-shrink-0 shadow-2xl rounded-2xl overflow-hidden group relative bg-zinc-900 border border-white/5">
-          <img 
-            src={getArtworkUrl(albumData.attributes.artwork)} 
-            alt={albumData.attributes.name}
-            class="w-full h-full object-cover"
-          />
+          {#if getSquareEditorialVideo(albumData.attributes)}
+            <video
+              src={getSquareEditorialVideo(albumData.attributes)}
+              class="w-full h-full object-cover"
+              autoplay
+              muted
+              loop
+              playsinline
+            ></video>
+          {:else}
+            <img
+              src={getArtworkUrl(albumData.attributes.artwork)}
+              alt={albumData.attributes.name}
+              class="w-full h-full object-cover"
+            />
+          {/if}
           <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
              <div class="bg-white/10 backdrop-blur-md p-6 rounded-full blur-none">
                 <Play class="size-10 text-white fill-current translate-x-1" />
@@ -165,47 +183,12 @@
         </div>
       {/if}
 
-      <!-- Tracklist Table -->
-      <div class="w-full">
-        <div class="grid grid-cols-[1fr_8rem] items-center px-4 py-3 border-b border-white/5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.15em] mb-2">
-          <span>Track</span>
-          <span class="text-right flex justify-end mr-4"><Clock class="size-3" /></span>
-        </div>
-
-        <div class="flex flex-col">
-          {#each albumData.relationships.tracks.data as track, i}
-            <div 
-              class="grid grid-cols-[1fr_8rem] items-center px-4 py-3 rounded-xl hover:bg-white/[0.04] transition-all group cursor-pointer border border-transparent hover:border-white/5"
-              onclick={() => playTrack(track)}
-            >
-              <div class="flex items-center min-w-0">
-                <div class="text-zinc-500 font-bold text-sm relative w-8 flex justify-start items-center flex-shrink-0">
-                  <span class="group-hover:opacity-0 transition-opacity text-xs">{i + 1}</span>
-                  <Play class="size-3 absolute opacity-0 group-hover:opacity-100 transition-opacity text-white fill-current" />
-                </div>
-
-                <div class="flex flex-col min-w-0 ml-2">
-                  <span class="text-[14px] font-bold text-white/90 truncate group-hover:text-red-500 transition-colors">
-                    {track.attributes.name}
-                  </span>
-                  <div class="flex items-center gap-2 mt-0.5">
-                    {#if track.attributes.contentRating === 'explicit'}
-                      <span class="bg-zinc-800 text-[8px] px-1 rounded-sm text-zinc-500 font-black flex items-center h-3">E</span>
-                    {/if}
-                    <span class="text-[11px] text-zinc-400 font-medium truncate">
-                      {track.attributes.artistName}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="text-right text-xs font-medium text-zinc-500 group-hover:text-zinc-300 transition-colors pr-4">
-                {formatDuration(track.attributes.durationInMillis)}
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
+      <TrackList
+        tracks={albumData.relationships.tracks.data}
+        onPlay={playTrack}
+        getArtworkUrl={getArtworkUrl}
+        fallbackArtwork={albumData.attributes.artwork}
+      />
 
       <!-- Related Albums Section -->
       {#if albumData.views?.['related-albums']?.data?.length > 0}

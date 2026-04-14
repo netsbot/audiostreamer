@@ -26,15 +26,28 @@ pub async fn execute_playback(
     adam_id: String,
     paused: Arc<AtomicBool>,
     samples_played: Arc<AtomicU64>,
+    output_sample_rate: Arc<AtomicU64>,
+    output_channels: Arc<AtomicU64>,
     active_sink: Arc<Mutex<Option<PlaybackControls>>>,
 ) -> Result<()> {
-    execute_playback_at(adam_id, paused, samples_played, active_sink, 0.0).await
+    execute_playback_at(
+        adam_id,
+        paused,
+        samples_played,
+        output_sample_rate,
+        output_channels,
+        active_sink,
+        0.0,
+    )
+    .await
 }
 
 pub async fn execute_playback_at(
     adam_id: String,
     paused: Arc<AtomicBool>,
     samples_played: Arc<AtomicU64>,
+    output_sample_rate: Arc<AtomicU64>,
+    output_channels: Arc<AtomicU64>,
     active_sink: Arc<Mutex<Option<PlaybackControls>>>,
     start_time: f64,
 ) -> Result<()> {
@@ -47,7 +60,11 @@ pub async fn execute_playback_at(
         source.seek(start_time).await?;
     }
 
-    let mut sink = PlaybackSink::new_with_counter(samples_played.clone());
+    let mut sink = PlaybackSink::new_with_metrics(
+        samples_played.clone(),
+        output_sample_rate,
+        output_channels,
+    );
     let controls = sink.controls();
     
     // Register the sink for instant control
@@ -81,6 +98,8 @@ pub async fn run() -> Result<()> {
     if let Some(adam_id) = cli.adam_id {
         let paused = Arc::new(AtomicBool::new(false));
         let samples_played = Arc::new(AtomicU64::new(0));
+        let output_sample_rate = Arc::new(AtomicU64::new(44_100));
+        let output_channels = Arc::new(AtomicU64::new(2));
         let active_sink = Arc::new(Mutex::new(None));
 
         log::info!("Starting playback for Adam ID: {}", adam_id);
@@ -89,6 +108,8 @@ pub async fn run() -> Result<()> {
             adam_id,
             paused,
             samples_played,
+            output_sample_rate,
+            output_channels,
             active_sink,
         ).await?;
     } else {

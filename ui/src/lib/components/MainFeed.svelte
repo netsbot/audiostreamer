@@ -37,7 +37,15 @@
 
   async function handleSearch() {
     if (!searchQuery.trim()) {
-      searchResults = [];
+      searchResults = {
+        top: [],
+        songs: [],
+        albums: [],
+        artists: [],
+        playlists: [],
+        musicVideos: [],
+        stations: [],
+      };
       return;
     }
 

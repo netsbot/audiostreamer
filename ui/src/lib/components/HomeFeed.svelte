@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Hls from "hls.js";
+  import Hls, { type Level } from "hls.js";
   import { invoke } from "@tauri-apps/api/core";
   import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
   import { fade, fly } from "svelte/transition";
   import Play from "lucide-svelte/icons/play";
   import MoreHorizontal from "lucide-svelte/icons/more-horizontal";
   import Loader2 from "lucide-svelte/icons/loader-2";
-  import { playSong } from "$lib/playbackStore";
+  import { playSong, playStation } from "$lib/playbackStore";
 
   let {
     openAlbum = (id: string) => {},
@@ -19,12 +19,19 @@
   let isLoading = $state(true);
   let error = $state<string | null>(null);
 
-  function isAvcLevel(level: Hls.Level): boolean {
+  function activateOnKey(event: KeyboardEvent, action: () => void) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      action();
+    }
+  }
+
+  function isAvcLevel(level: Level): boolean {
     const codecs = (level.codecs || "").toLowerCase();
     return codecs.includes("avc1") || codecs.includes("avc3");
   }
 
-  function findScreenSizedAvcLevelIndex(levels: Hls.Level[], playerHeightCssPx: number): number {
+  function findScreenSizedAvcLevelIndex(levels: Level[], playerHeightCssPx: number): number {
     const avcLevels = levels
       .map((level, index) => ({
         index,
@@ -361,6 +368,12 @@
         artwork_url: getArtworkUrl(item.attributes.artwork, 600),
         duration_ms: item.attributes.durationInMillis,
       });
+    } else if (type === "stations") {
+      await playStation(item.id, {
+        name: item.attributes.name || "Station",
+        subtitle: item.attributes.editorialNotes?.short || item.attributes.description?.short || "",
+        artwork_url: getArtworkUrl(item.attributes.artwork, 600),
+      });
     } else if (type === "playlists" || type === "library-playlists") {
       openPlaylist(item.id, type);
     }
@@ -464,7 +477,10 @@
       <div 
         class="product-lockup relative rounded-2xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'};"
+        role="button"
+        tabindex="0"
         onclick={() => handleItemClick(resolved)}
+        onkeydown={(e) => activateOnKey(e, () => handleItemClick(resolved))}
       >
         <!-- Background Artwork/Video -->
         <div class="artwork-component w-full h-full absolute inset-0 bg-[var(--artwork-bg-color)]">
@@ -534,7 +550,10 @@
       <div 
         class="product-lockup relative {isRoundArtwork(resolved) ? 'rounded-full' : 'rounded-xl'} overflow-hidden aspect-square mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'}; --aspect-ratio: 1;"
+        role="button"
+        tabindex="0"
         onclick={() => handleItemClick(resolved)}
+        onkeydown={(e) => activateOnKey(e, () => handleItemClick(resolved))}
       >
         <div class="artwork-component w-full h-full">
            <picture>

@@ -82,14 +82,20 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_f32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [f32], samples_played: &Arc<AtomicU64>) {
+    fn drain_f32(
+        buffer: &Arc<Mutex<Option<PlaybackBuffer>>>,
+        data: &mut [f32],
+        frames_played: &Arc<AtomicU64>,
+        channels: u16,
+    ) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::F32(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0.0);
                 }
-                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
+                let channels = u64::from(channels.max(1));
+                frames_played.fetch_add((data.len() as u64) / channels, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -99,14 +105,20 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_i16(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i16], samples_played: &Arc<AtomicU64>) {
+    fn drain_i16(
+        buffer: &Arc<Mutex<Option<PlaybackBuffer>>>,
+        data: &mut [i16],
+        frames_played: &Arc<AtomicU64>,
+        channels: u16,
+    ) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::I16(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0);
                 }
-                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
+                let channels = u64::from(channels.max(1));
+                frames_played.fetch_add((data.len() as u64) / channels, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -116,14 +128,20 @@ impl PlaybackBuffer {
         }
     }
 
-    fn drain_i32(buffer: &Arc<Mutex<Option<PlaybackBuffer>>>, data: &mut [i32], samples_played: &Arc<AtomicU64>) {
+    fn drain_i32(
+        buffer: &Arc<Mutex<Option<PlaybackBuffer>>>,
+        data: &mut [i32],
+        frames_played: &Arc<AtomicU64>,
+        channels: u16,
+    ) {
         let mut locked = buffer.lock().unwrap();
         match locked.as_mut() {
             Some(PlaybackBuffer::I32(samples)) => {
                 for sample in data.iter_mut() {
                     *sample = samples.pop_front().unwrap_or(0);
                 }
-                samples_played.fetch_add(data.len() as u64, Ordering::SeqCst);
+                let channels = u64::from(channels.max(1));
+                frames_played.fetch_add((data.len() as u64) / channels, Ordering::SeqCst);
             }
             _ => {
                 for sample in data.iter_mut() {
@@ -137,7 +155,9 @@ impl PlaybackBuffer {
 pub struct PlaybackSink {
     stream: Arc<Mutex<Option<SendStream>>>,
     buffer: Arc<Mutex<Option<PlaybackBuffer>>>,
-    samples_played: Arc<AtomicU64>,
+    frames_played: Arc<AtomicU64>,
+    output_sample_rate: Arc<AtomicU64>,
+    output_channels: Arc<AtomicU64>,
     device_sample_rate: u32,
     device_channels: u16,
 }
@@ -146,14 +166,32 @@ unsafe impl Send for PlaybackSink {}
 
 impl PlaybackSink {
     pub fn new() -> Self {
-        Self::new_with_counter(Arc::new(AtomicU64::new(0)))
+        Self::new_with_metrics(
+            Arc::new(AtomicU64::new(0)),
+            Arc::new(AtomicU64::new(44_100)),
+            Arc::new(AtomicU64::new(2)),
+        )
     }
 
     pub fn new_with_counter(samples_played: Arc<AtomicU64>) -> Self {
+        Self::new_with_metrics(
+            samples_played,
+            Arc::new(AtomicU64::new(44_100)),
+            Arc::new(AtomicU64::new(2)),
+        )
+    }
+
+    pub fn new_with_metrics(
+        frames_played: Arc<AtomicU64>,
+        output_sample_rate: Arc<AtomicU64>,
+        output_channels: Arc<AtomicU64>,
+    ) -> Self {
         Self {
             stream: Arc::new(Mutex::new(None)),
             buffer: Arc::new(Mutex::new(None)),
-            samples_played,
+            frames_played,
+            output_sample_rate,
+            output_channels,
             device_sample_rate: 44100, // Default to something sane
             device_channels: 2,
         }
@@ -189,6 +227,10 @@ impl PlaybackSink {
 
         self.device_sample_rate = config.sample_rate().0;
         self.device_channels = config.channels();
+        self.output_sample_rate
+            .store(self.device_sample_rate as u64, Ordering::SeqCst);
+        self.output_channels
+            .store(self.device_channels as u64, Ordering::SeqCst);
 
         log::info!(
             "initializing bit-perfect playback stream: rate={} channels={} format={:?}",
@@ -200,13 +242,14 @@ impl PlaybackSink {
         let stream_config = config.config();
         let sample_format = config.sample_format();
         let buffer = self.buffer.clone();
-        let samples_played = self.samples_played.clone();
+        let frames_played = self.frames_played.clone();
+        let channels = self.device_channels;
 
         let stream = match sample_format {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [f32], _| {
-                    PlaybackBuffer::drain_f32(&buffer, data, &samples_played);
+                    PlaybackBuffer::drain_f32(&buffer, data, &frames_played, channels);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -214,7 +257,7 @@ impl PlaybackSink {
             cpal::SampleFormat::I16 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [i16], _| {
-                    PlaybackBuffer::drain_i16(&buffer, data, &samples_played);
+                    PlaybackBuffer::drain_i16(&buffer, data, &frames_played, channels);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -222,7 +265,7 @@ impl PlaybackSink {
             cpal::SampleFormat::I32 => device.build_output_stream(
                 &stream_config,
                 move |data: &mut [i32], _| {
-                    PlaybackBuffer::drain_i32(&buffer, data, &samples_played);
+                    PlaybackBuffer::drain_i32(&buffer, data, &frames_played, channels);
                 },
                 |err| log::error!("Playback error: {}", err),
                 None,
@@ -251,7 +294,7 @@ impl PlaybackSink {
     }
 
     pub fn samples_played(&self) -> u64 {
-        self.samples_played.load(Ordering::SeqCst)
+        self.frames_played.load(Ordering::SeqCst)
     }
 
     pub fn device_sample_rate(&self) -> u32 {

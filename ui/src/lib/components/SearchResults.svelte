@@ -5,7 +5,7 @@
   import Radio from "lucide-svelte/icons/radio";
   import Search from "lucide-svelte/icons/search";
   import { fly } from "svelte/transition";
-  import { playSong as playSongInStore } from "$lib/playbackStore";
+  import { playSong as playSongInStore, playStation } from "$lib/playbackStore";
 
   let { 
     searchResults, 
@@ -37,6 +37,14 @@
         duration_ms: item.attributes.durationInMillis
     });
   }
+
+  async function playStationItem(station: any) {
+    await playStation(station.id, {
+      name: station.attributes?.name || "Station",
+      subtitle: station.attributes?.editorialNotes?.short || station.attributes?.description?.short || "",
+      artwork_url: artworkSrc(station.attributes?.artwork, 600),
+    });
+  }
 </script>
 
 <div
@@ -47,7 +55,7 @@
     <h2 class="text-3xl font-black tracking-tighter">Search Results</h2>
     <button
       class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest hover:text-red-500 transition-colors"
-      onclick={clearSearch}>Clear Results</button
+      onclick={() => clearSearch()}>Clear Results</button
     >
   </div>
 
@@ -57,8 +65,9 @@
       <h3 class="text-xl font-bold mb-6 text-white/90">Top Results</h3>
       <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
         {#each searchResults.top.slice(0, 6) as item}
-          <div 
-            class="flex-shrink-0 w-40 group cursor-pointer transition-all duration-300"
+          <button
+            type="button"
+            class="flex-shrink-0 w-40 group cursor-pointer transition-all duration-300 text-left"
             onclick={() => {
               if (item.type === 'songs') {
                 playSong(item);
@@ -93,7 +102,7 @@
                 {item.attributes.artistName || (item.type === "artists" ? "Artist" : "")}
               </p>
             </div>
-          </div>
+          </button>
         {/each}
       </div>
     </section>
@@ -144,8 +153,9 @@
       </div>
       <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
         {#each searchResults.albums as album}
-          <div 
-            class="flex-shrink-0 w-40 group cursor-pointer"
+          <button
+            type="button"
+            class="flex-shrink-0 w-40 group cursor-pointer text-left"
             onclick={() => openAlbum(album.id)}
           >
             <div
@@ -170,7 +180,7 @@
             <p class="text-zinc-500 text-[11px] truncate">
               {album.attributes.artistName}
             </p>
-          </div>
+          </button>
         {/each}
       </div>
     </section>
@@ -182,8 +192,9 @@
       <h3 class="text-xl font-bold mb-6 text-white/90">Songs</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {#each searchResults.songs.slice(0, 6) as song}
-          <div
-            class="bg-white/[0.03] backdrop-blur-3xl p-2 rounded-lg flex items-center gap-3 group hover:bg-white/[0.08] cursor-pointer border border-white/5 transition-all duration-200"
+          <button
+            type="button"
+            class="bg-white/[0.03] backdrop-blur-3xl p-2 rounded-lg flex items-center gap-3 group hover:bg-white/[0.08] cursor-pointer border border-white/5 transition-all duration-200 text-left"
             onclick={() => playSong(song)}
           >
             <div class="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 shadow-lg relative border border-white/5">
@@ -204,7 +215,7 @@
                 {song.attributes.artistName}
               </p>
             </div>
-          </div>
+          </button>
         {/each}
       </div>
     </section>
@@ -221,8 +232,9 @@
       </div>
       <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
         {#each searchResults.playlists as playlist}
-          <div
-            class="flex-shrink-0 w-40 group cursor-pointer"
+          <button
+            type="button"
+            class="flex-shrink-0 w-40 group cursor-pointer text-left"
             onclick={() => openPlaylist(playlist.id, playlist.type || 'playlists')}
           >
             <div class="aspect-square rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
@@ -236,7 +248,7 @@
               {playlist.attributes.name}
             </h5>
             <p class="text-zinc-500 text-[11px] truncate">Apple Music</p>
-          </div>
+          </button>
         {/each}
       </div>
     </section>
@@ -285,7 +297,11 @@
       </div>
       <div class="flex gap-8 overflow-x-auto pb-6 no-scrollbar">
         {#each searchResults.stations as station}
-          <div class="flex-shrink-0 w-40 flex flex-col group cursor-pointer text-center">
+          <button
+            type="button"
+            class="flex-shrink-0 w-40 flex flex-col group cursor-pointer text-center"
+            onclick={() => playStationItem(station)}
+          >
             <div class="w-40 h-40 rounded-xl overflow-hidden mb-4 border border-white/5 shadow-2xl relative bg-zinc-900 group-hover:border-white/20 transition-all">
               {#if station.attributes.artwork}
                 <img
@@ -305,7 +321,7 @@
                 {station.attributes.name}
               </span>
             </div>
-          </div>
+          </button>
         {/each}
       </div>
     </section>
