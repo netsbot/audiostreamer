@@ -5,7 +5,9 @@
   import MicVocal from 'lucide-svelte/icons/mic-vocal';
   import X from 'lucide-svelte/icons/x';
   import Play from 'lucide-svelte/icons/play';
+  import Heart from 'lucide-svelte/icons/heart';
   import { playback } from '$lib/playback.svelte';
+  import { library } from '$lib/library.svelte';
 
   type Syllable = {
     text: string;
@@ -292,9 +294,21 @@
           Playing Next
         </button>
       </div>
-      <button class="text-zinc-500 hover:text-white">
-        <Maximize2 class="size-4" />
-      </button>
+      <div class="flex items-center gap-3">
+        {#if playback.currentTrackId}
+          <button 
+            onclick={() => library.toggleFavorite(playback.currentTrackId!)}
+            class="text-zinc-500 hover:text-white transition-colors"
+          >
+            <Heart 
+              class="size-4 {library.isFavorite(playback.currentTrackId!) ? 'text-red-500 fill-red-500' : ''}" 
+            />
+          </button>
+        {/if}
+        <button class="text-zinc-500 hover:text-white">
+          <Maximize2 class="size-4" />
+        </button>
+      </div>
     </div>
   </div>
 

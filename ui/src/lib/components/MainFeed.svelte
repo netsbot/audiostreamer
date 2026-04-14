@@ -53,11 +53,11 @@
     <div in:fade={{ duration: 300 }}>
       <button 
         class="mb-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm"
-        onclick={() => navigation.activeView = (searchQuery ? 'search' : 'home')}
+        onclick={() => navigation.activeView = (search.query ? 'search' : 'home')}
       >
         <ArrowLeft class="size-4" /> Back
       </button>
-      <AlbumView albumId={navigation.selectedAlbumId} />
+      <AlbumView albumId={navigation.selectedAlbumId} albumType={navigation.selectedAlbumType} />
     </div>
   {/if}
 
@@ -65,7 +65,7 @@
     <div in:fade={{ duration: 300 }}>
       <button
         class="mb-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm"
-        onclick={() => navigation.activeView = (searchQuery ? 'search' : 'home')}
+        onclick={() => navigation.activeView = (search.query ? 'search' : 'home')}
       >
         <ArrowLeft class="size-4" /> Back
       </button>

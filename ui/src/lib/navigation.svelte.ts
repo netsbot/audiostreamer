@@ -7,6 +7,7 @@ class NavigationState {
   selectedPlaylistId = $state('');
   selectedPlaylistType = $state('playlists');
   selectedAlbumId = $state('');
+  selectedAlbumType = $state('albums');
 
   openPlaylist(id: string, type = 'playlists') {
     this.selectedPlaylistId = id;
@@ -14,8 +15,9 @@ class NavigationState {
     this.activeView = 'playlist';
   }
 
-  openAlbum(id: string) {
+  openAlbum(id: string, type = 'albums') {
     this.selectedAlbumId = id;
+    this.selectedAlbumType = type;
     this.activeView = 'album';
   }
 

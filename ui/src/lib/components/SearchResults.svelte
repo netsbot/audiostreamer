@@ -6,6 +6,8 @@
   import Search from "lucide-svelte/icons/search";
   import { fly } from "svelte/transition";
   import { playback, type QueueTrack } from "$lib/playback.svelte";
+  import { library } from "$lib/library.svelte";
+  import Heart from "lucide-svelte/icons/heart";
 
   let { 
     searchResults, 
@@ -216,10 +218,12 @@
       <h3 class="text-xl font-bold mb-6 text-white/90">Songs</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {#each searchResults.songs.slice(0, 6) as song}
-          <button
-            type="button"
+          <div
+            role="button"
+            tabindex="0"
             class="bg-white/[0.03] backdrop-blur-3xl p-2 rounded-lg flex items-center gap-3 group hover:bg-white/[0.08] cursor-pointer border border-white/5 transition-all duration-200 text-left"
             onclick={() => playSong(song, searchResults.songs || [])}
+            onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && playSong(song, searchResults.songs || [])}
           >
             <div class="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 shadow-lg relative border border-white/5">
               <img
@@ -239,7 +243,18 @@
                 {song.attributes.artistName}
               </p>
             </div>
-          </button>
+            <button
+              class="opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-500 transition-all"
+              onclick={(e) => {
+                e.stopPropagation();
+                library.toggleFavorite(song.id);
+              }}
+            >
+              <Heart 
+                class="size-3.5 {library.isFavorite(song.id) ? 'text-red-500 fill-red-500 opacity-100' : ''}" 
+              />
+            </button>
+          </div>
         {/each}
       </div>
     </section>

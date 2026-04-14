@@ -22,6 +22,7 @@
 
   onMount(() => {
     library.fetchPlaylists();
+    library.fetchFavorites();
   });
 
   const favorites = $derived(library.playlists.find(p => 
@@ -55,16 +56,19 @@
 
   <nav class="flex flex-col gap-y-1">
     {#each navItems as item}
-      <button
+      <div
+        role="button"
+        tabindex="0"
         onclick={() => { 
           navigation.activeView = item.view as any;
           navigation.selectedPlaylistId = ''; // Clear selected playlist when clicking main nav
         }}
-        class="flex items-center gap-3 py-2 transition-all w-full text-left {navigation.activeView === item.view && !navigation.selectedPlaylistId ? 'text-white font-bold translate-x-1' : 'text-zinc-400 hover:text-red-400'}"
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (navigation.activeView = item.view as any)}
+        class="flex items-center gap-3 py-2 transition-all w-full text-left {navigation.activeView === item.view && !navigation.selectedPlaylistId ? 'text-white font-bold translate-x-1' : 'text-zinc-400 hover:text-red-400'} cursor-pointer"
       >
-        <svelte:component this={item.icon} class="size-4 {navigation.activeView === item.view && !navigation.selectedPlaylistId ? 'text-red-500' : ''}" />
+        <item.icon class="size-4 {navigation.activeView === item.view && !navigation.selectedPlaylistId ? 'text-red-500' : ''}" />
         <span class="text-sm">{item.label}</span>
-      </button>
+      </div>
     {/each}
   </nav>
 

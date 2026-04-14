@@ -8,31 +8,53 @@
   import Loader2 from "lucide-svelte/icons/loader-2";
   import TrackList from "./TrackList.svelte";
 
-  let { albumId = "" } = $props();
+  let { albumId = "", albumType = "albums" } = $props();
 
   let albumData = $state<any>(null);
   let isLoading = $state(true);
   let isNotesExpanded = $state(false);
 
+  function resolveTrack(track: any) {
+    const catalogTrack = track.relationships?.catalog?.data?.[0];
+    const attrs = track.attributes || catalogTrack?.attributes || {};
+    const id = catalogTrack?.id || track.id;
+
+    return {
+      id,
+      attrs,
+    };
+  }
+
   async function fetchAlbumDetails() {
     if (!albumId) return;
+
     isLoading = true;
+    albumData = null;
+
     try {
-      const token = (await invoke("get_apple_music_token")) as string;
-      const url = `https://api.music.apple.com/v1/catalog/us/albums/${albumId}?include=tracks,artists&views=related-albums`;
-      
+      const devToken = (await invoke("get_apple_music_token")) as string;
+      const userToken = (await invoke("get_apple_music_user_token")) as string;
+
+      const url =
+        albumType === "library-albums"
+          ? `https://api.music.apple.com/v1/me/library/albums/${albumId}?include=tracks,artists`
+          : `https://api.music.apple.com/v1/catalog/us/albums/${albumId}?include=tracks,artists&views=related-albums`;
+
       const response = await tauriFetch(url, {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${devToken}`,
+          "media-user-token": userToken,
           Origin: "https://music.apple.com",
           Referer: "https://music.apple.com/",
         },
       });
 
       const data = await response.json();
-      albumData = data.data[0];
+      albumData = data?.data?.[0] || null;
     } catch (error) {
       console.error("Failed to fetch album details:", error);
+      albumData = null;
     } finally {
       isLoading = false;
     }
@@ -48,45 +70,49 @@
       .replace(/SH\?/g, "SC?");
   }
 
-  function formatDuration(ms: number) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  }
-
   $effect(() => {
-    if (albumId) fetchAlbumDetails();
+    if (albumId) {
+      void fetchAlbumDetails();
+    }
   });
 
   import { playback, type QueueTrack } from "$lib/playback.svelte";
 
   function buildAlbumQueue(): QueueTrack[] {
     const tracks = albumData?.relationships?.tracks?.data || [];
-    return tracks.map((track: any) => ({
-      id: track.id,
-      metadata: {
-        title: track.attributes.name,
-        artist: track.attributes.artistName,
-        album: albumData.attributes.name,
-        artwork_url: getArtworkUrl(albumData.attributes.artwork, 600),
-        duration_ms: track.attributes.durationInMillis,
-      },
-    }));
+    return tracks
+      .map((track: any) => {
+        const resolved = resolveTrack(track);
+        if (!resolved.id) return null;
+        return {
+          id: resolved.id,
+          metadata: {
+            title: resolved.attrs.name || "Unknown",
+            artist: resolved.attrs.artistName || "Unknown Artist",
+            album: resolved.attrs.albumName || albumData?.attributes?.name || "",
+            artwork_url: getArtworkUrl(resolved.attrs.artwork || albumData?.attributes?.artwork, 600),
+            duration_ms: resolved.attrs.durationInMillis,
+          },
+        } as QueueTrack;
+      })
+      .filter((t: QueueTrack | null): t is QueueTrack => !!t);
   }
 
   async function playTrack(track: any, index?: number) {
-    console.log("Playing track:", track.id);
+    const resolved = resolveTrack(track);
+    if (!resolved.id) return;
+
     const queue = buildAlbumQueue();
     const startIndex = typeof index === "number"
       ? index
-      : queue.findIndex((entry) => entry.id === track.id);
-    await playback.playSong(track.id, {
-        title: track.attributes.name,
-        artist: track.attributes.artistName,
-        album: albumData.attributes.name,
-        artwork_url: getArtworkUrl(albumData.attributes.artwork, 600),
-        duration_ms: track.attributes.durationInMillis
+      : queue.findIndex((entry) => entry.id === resolved.id);
+
+    await playback.playSong(resolved.id, {
+      title: resolved.attrs.name || "Unknown",
+      artist: resolved.attrs.artistName || "Unknown Artist",
+      album: resolved.attrs.albumName || albumData?.attributes?.name || "",
+      artwork_url: getArtworkUrl(resolved.attrs.artwork || albumData?.attributes?.artwork, 600),
+      duration_ms: resolved.attrs.durationInMillis,
     }, {
       queue,
       startIndex,
@@ -94,17 +120,19 @@
   }
 
   function playAlbum() {
-    if (albumData?.relationships?.tracks?.data?.length > 0) {
-      const firstTrack = albumData.relationships.tracks.data[0];
-      playTrack(firstTrack);
+    const firstTrack = albumData?.relationships?.tracks?.data?.[0];
+    if (firstTrack) {
+      void playTrack(firstTrack);
     }
   }
 
   function getSquareEditorialVideo(attrs: any): string | null {
     const editorial = attrs?.editorialVideo;
-    return editorial?.motionSquareVideo1x1?.video
-      || editorial?.motionDetailSquare?.video
-      || null;
+    return (
+      editorial?.motionSquareVideo1x1?.video ||
+      editorial?.motionDetailSquare?.video ||
+      null
+    );
   }
 </script>
 
@@ -206,6 +234,7 @@
 
       <TrackList
         tracks={albumData.relationships.tracks.data}
+        resolveTrack={resolveTrack}
         onPlay={playTrack}
         getArtworkUrl={getArtworkUrl}
         fallbackArtwork={albumData.attributes.artwork}

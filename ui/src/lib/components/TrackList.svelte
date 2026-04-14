@@ -1,6 +1,8 @@
 <script lang="ts">
   import Play from "lucide-svelte/icons/play";
   import Clock from "lucide-svelte/icons/clock";
+  import Heart from "lucide-svelte/icons/heart";
+  import { library } from "$lib/library.svelte";
 
   type ResolvedTrack = {
     id?: string;
@@ -25,8 +27,9 @@
 </script>
 
 <div class="w-full">
-  <div class="grid grid-cols-[1fr_8rem] items-center px-4 py-3 border-b border-white/5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.15em] mb-2">
+  <div class="grid grid-cols-[1fr_2rem_6rem] items-center px-4 py-3 border-b border-white/5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.15em] mb-2">
     <span>Track</span>
+    <span class="text-right"></span>
     <span class="text-right flex justify-end mr-4"><Clock class="size-3" /></span>
   </div>
 
@@ -34,10 +37,12 @@
     {#each tracks as track, i}
       {@const resolved = resolveTrack(track)}
       {@const rowArtwork = resolved.attrs.artwork || fallbackArtwork}
-      <button
-        type="button"
-        class="grid grid-cols-[1fr_8rem] items-center px-4 py-3 rounded-xl hover:bg-white/[0.04] transition-all group border border-transparent hover:border-white/5 text-left"
+      <div
+        role="button"
+        tabindex="0"
+        class="grid grid-cols-[1fr_2rem_6rem] items-center px-4 py-3 rounded-xl hover:bg-white/[0.04] transition-all group border border-transparent hover:border-white/5 text-left"
         onclick={() => onPlay(track, i)}
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onPlay(track, i)}
       >
         <div class="flex items-center min-w-0">
           <div class="text-zinc-500 font-bold text-sm relative w-8 flex justify-start items-center flex-shrink-0">
@@ -69,10 +74,24 @@
           </div>
         </div>
 
+        <div class="flex justify-end">
+          <button 
+            onclick={(e) => {
+              e.stopPropagation();
+              if (resolved.id) library.toggleFavorite(resolved.id);
+            }}
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-white/5 rounded-full"
+          >
+            <Heart 
+              class="size-3.5 {resolved.id && library.isFavorite(resolved.id) ? 'text-red-500 fill-red-500 opacity-100' : 'text-zinc-500'}" 
+            />
+          </button>
+        </div>
+
         <div class="text-right text-xs font-medium text-zinc-500 group-hover:text-zinc-300 transition-colors pr-4">
           {formatDuration(resolved.attrs.durationInMillis)}
         </div>
-      </button>
+      </div>
     {/each}
   </div>
 </div>

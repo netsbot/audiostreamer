@@ -14,6 +14,8 @@
   import ListMusic from 'lucide-svelte/icons/list-music';
   
   import { playback } from '$lib/playback.svelte';
+  import { library } from '$lib/library.svelte';
+  import Heart from 'lucide-svelte/icons/heart';
 
   function handleSeek(e: MouseEvent) {
     if (!playback.totalTime) return;
@@ -61,7 +63,19 @@
       {/if}
     </div>
     <div class="flex flex-col overflow-hidden">
-      <span class="text-sm font-bold truncate text-white">{playback.currentTrack?.title || defaultTrack.title}</span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-bold truncate text-white">{playback.currentTrack?.title || defaultTrack.title}</span>
+        {#if playback.currentTrackId}
+          <button 
+            onclick={() => library.toggleFavorite(playback.currentTrackId!)}
+            class="transition-colors group"
+          >
+            <Heart 
+              class="size-3.5 {library.isFavorite(playback.currentTrackId) ? 'text-red-500 fill-red-500' : 'text-zinc-600 group-hover:text-zinc-400'}" 
+            />
+          </button>
+        {/if}
+      </div>
       <span class="text-xs text-zinc-400 truncate">{playback.currentTrack?.artist || defaultTrack.artist} {#if playback.currentTrack?.album} — {playback.currentTrack.album}{/if}</span>
     </div>
   </div>
