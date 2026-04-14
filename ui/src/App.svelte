@@ -6,17 +6,42 @@
   import { playback } from '$lib/playback.svelte';
   import { onMount } from 'svelte';
 
+  let innerWidth = $state(0);
+  let hasInitializedPaneState = $state(false);
+
+  const MOBILE_BREAKPOINT = 1280;
+
+  const isMobileLayout = $derived(innerWidth > 0 && innerWidth < MOBILE_BREAKPOINT);
+
+  $effect(() => {
+    if (innerWidth <= 0 || hasInitializedPaneState) return;
+    playback.lyricsPaneOpen = innerWidth >= MOBILE_BREAKPOINT;
+    hasInitializedPaneState = true;
+  });
+
   onMount(() => {
     playback.initBridge();
   });
 </script>
 
+<svelte:window bind:innerWidth={innerWidth} />
+
 <div class="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
   <main class="flex flex-1 overflow-hidden">
     <Sidebar />
     <MainFeed />
-    <LyricsPane />
+    {#if playback.lyricsPaneOpen && !isMobileLayout}
+      <LyricsPane />
+    {/if}
   </main>
+
+  {#if playback.lyricsPaneOpen && isMobileLayout}
+    <div class="fixed inset-0 z-40 bg-black/40" onclick={() => playback.lyricsPaneOpen = false} aria-hidden="true"></div>
+    <div class="fixed top-0 right-0 bottom-20 z-50 w-full max-w-88">
+      <LyricsPane />
+    </div>
+  {/if}
+
   <footer class="shrink-0">
     <PlaybackBar />
   </footer>

@@ -3,6 +3,13 @@
   import Maximize2 from 'lucide-svelte/icons/maximize-2';
   import { playback } from '$lib/playback.svelte';
 
+  type Syllable = {
+    text: string;
+    start: number;
+    end: number;
+    isBackground: boolean;
+  };
+
   type Word = {
     syllables: Syllable[];
     hasTrailingSpace: boolean;
@@ -13,6 +20,7 @@
     start: number;
     end: number;
     words: Word[];
+    fullLineHighlight: boolean;
   };
 
   let lines = $state<LyricLine[]>([]);
@@ -45,15 +53,45 @@
     return node.getAttribute('ttm:role') === 'x-bg';
   }
 
+  function tokenizeByWhitespace(text: string): string[] {
+    return text.match(/\s+|[^\s]+/g) ?? [];
+  }
+
+  function getLineDisplayEnd(lineIndex: number): number {
+    const currentLine = lines[lineIndex];
+    const nextLine = lines[lineIndex + 1];
+    if (!currentLine) return 0;
+
+    if (nextLine && nextLine.start > currentLine.start) {
+      return Math.max(nextLine.start, currentLine.end);
+    }
+
+    return currentLine.end;
+  }
+
   function parseTtmlToLines(ttml: string): LyricLine[] {
     const parser = new DOMParser();
     const doc = parser.parseFromString(ttml, 'application/xml');
     const pNodes = Array.from(doc.getElementsByTagName('p'));
     const result: LyricLine[] = [];
 
-    for (const pNode of pNodes) {
+    for (let pIndex = 0; pIndex < pNodes.length; pIndex++) {
+      const pNode = pNodes[pIndex];
       const lineStart = parseTtmlTime(pNode.getAttribute('begin'));
-      const lineEnd = parseTtmlTime(pNode.getAttribute('end'));
+      const nextLineStart = pIndex + 1 < pNodes.length
+        ? parseTtmlTime(pNodes[pIndex + 1].getAttribute('begin'))
+        : 0;
+      let lineEnd = parseTtmlTime(pNode.getAttribute('end'));
+
+      // Some TTML variants omit line end times. Fall back to next line start
+      // (or a reasonable default) so non-syllable lyrics stay visible.
+      if (lineEnd <= lineStart) {
+        if (nextLineStart > lineStart) {
+          lineEnd = nextLineStart;
+        } else {
+          lineEnd = lineStart + 4;
+        }
+      }
       const allSyllables: Syllable[] = [];
       let pendingText = '';
 
@@ -64,7 +102,8 @@
         }
         if (child.nodeType !== Node.ELEMENT_NODE) continue;
         const el = child as Element;
-        if (el.tagName !== 'span' || isBackgroundSpan(el)) continue;
+        if (el.tagName !== 'span') continue;
+        const isBg = isBackgroundSpan(el);
 
         const raw = el.textContent ?? '';
         if (!raw) continue;
@@ -75,12 +114,14 @@
           text,
           start: parseTtmlTime(el.getAttribute('begin')) || lineStart,
           end: parseTtmlTime(el.getAttribute('end')) || lineEnd,
+          isBackground: isBg,
         });
       }
 
       if (pendingText.trim()) {
-        const lastEnd = allSyllables.length > 0 ? allSyllables[allSyllables.length - 1].end : lineEnd;
-        allSyllables.push({ text: pendingText, start: lastEnd, end: lineEnd });
+        const lastEnd = allSyllables.length > 0 ? allSyllables[allSyllables.length - 1].end : lineStart;
+        const safeStart = Math.min(lastEnd, lineEnd - 0.001);
+        allSyllables.push({ text: pendingText, start: safeStart, end: lineEnd, isBackground: false });
       }
 
       if (allSyllables.length === 0) {
@@ -88,28 +129,53 @@
         if (!text) continue;
         result.push({
           text, start: lineStart, end: lineEnd,
-          words: [{ syllables: [{ text, start: lineStart, end: lineEnd }], hasTrailingSpace: false }]
+          words: [{ syllables: [{ text, start: lineStart, end: lineEnd, isBackground: false }], hasTrailingSpace: false }],
+          fullLineHighlight: true,
         });
         continue;
       }
 
-      // Group syllables into words
+      // Group syllables into words. This also handles non-syllable lyrics where
+      // a single span (or line fallback) contains full text with spaces.
       const words: Word[] = [];
       let currentWordSyllables: Syllable[] = [];
+      let fullLineHighlight = allSyllables.length <= 1;
       
-      for (const s of allSyllables) {
-        currentWordSyllables.push(s);
-        if (s.text.endsWith(' ')) {
-          words.push({ syllables: currentWordSyllables, hasTrailingSpace: true });
-          currentWordSyllables = [];
+      for (const rawSyllable of allSyllables) {
+        const tokens = tokenizeByWhitespace(rawSyllable.text);
+        const textTokens = tokens.filter((token) => !/^\s+$/.test(token));
+        if (textTokens.length > 1) fullLineHighlight = true;
+        const tokenCount = Math.max(textTokens.length, 1);
+        const safeStart = rawSyllable.start;
+        const safeEnd = rawSyllable.end > rawSyllable.start ? rawSyllable.end : rawSyllable.start + 0.25;
+        const slot = (safeEnd - safeStart) / tokenCount;
+        let textTokenIndex = 0;
+
+        for (const token of tokens) {
+          if (/^\s+$/.test(token)) {
+            if (currentWordSyllables.length > 0) {
+              words.push({ syllables: currentWordSyllables, hasTrailingSpace: true });
+              currentWordSyllables = [];
+            }
+            continue;
+          }
+
+          currentWordSyllables.push({
+            text: token,
+            start: safeStart + slot * textTokenIndex,
+            end: safeStart + slot * (textTokenIndex + 1),
+            isBackground: rawSyllable.isBackground,
+          });
+          textTokenIndex += 1;
         }
       }
+
       if (currentWordSyllables.length > 0) {
         words.push({ syllables: currentWordSyllables, hasTrailingSpace: false });
       }
 
       const lineText = allSyllables.map((s) => s.text).join('').trim();
-      result.push({ text: lineText, start: lineStart, end: lineEnd, words });
+      result.push({ text: lineText, start: lineStart, end: lineEnd, words, fullLineHighlight });
     }
     return result;
   }
@@ -188,7 +254,7 @@
     const t = playback.smoothTime;
     let activeIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-        if (t >= lines[i].start && t < lines[i].end) {
+      if (t >= lines[i].start && t < getLineDisplayEnd(i)) {
             activeIndex = i;
             break;
         }
@@ -203,28 +269,24 @@
 
 <aside 
   bind:this={scroller} 
-  class="fixed right-0 top-0 h-[calc(100vh-80px)] w-[480px] bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 p-12 overflow-y-auto no-scrollbar"
-  style="
-    --lyrics-linear-gradient: linear-gradient(180deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
-    -webkit-mask-image: var(--lyrics-linear-gradient);
-    mask-image: var(--lyrics-linear-gradient);
-  "
+  class="relative h-full w-88 shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 p-10 overflow-y-auto no-scrollbar"
 >
-  <div class="flex items-center justify-between mb-12">
+  <div class="flex items-center justify-between mb-10">
     <h2 class="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Lyrics</h2>
     <button class="text-zinc-500 hover:text-white">
       <Maximize2 class="size-4" />
     </button>
   </div>
 
-  <div class="space-y-8 pb-32">
+  <div class="space-y-7 pb-28">
     {#if isLoading}
       <p class="text-zinc-500 text-sm">Loading lyrics...</p>
     {:else if lines.length === 0}
       <p class="text-zinc-500 text-sm">No lyrics loaded{error ? ` (${error})` : ''}</p>
     {:else}
       {#each lines as line, lineIndex}
-        {@const lineActive = playback.smoothTime >= line.start && playback.smoothTime < line.end}
+        {@const lineDisplayEnd = getLineDisplayEnd(lineIndex)}
+        {@const lineActive = playback.smoothTime >= line.start && playback.smoothTime < lineDisplayEnd}
         <div class="display-synced-line mb-10 transition-all duration-700" style="filter: blur({lineActive ? '0px' : '2px'});">
           <button 
             class="line w-full text-left border-none bg-transparent p-0 cursor-pointer transition-all duration-500 whitespace-normal {lineActive ? 'opacity-100' : 'opacity-20 hover:opacity-40'}"
@@ -232,46 +294,92 @@
           >
             <div 
               use:registerLine={lineIndex}
-              class="primary-vocals block text-[2.75rem] font-black tracking-tight leading-[1.15]"
+              class="lyrics-container flex flex-col items-start gap-2"
             >
-              {#each line.words as word}
-                <span class="group inline-block whitespace-normal wrap-break-word overflow-visible">
-                  {#each word.syllables as syllable}
-                    {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
-                    {@const delay = Math.round((syllable.start - line.start) * 1000)}
-                    {@const progress = Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / (syllable.end - syllable.start)) * 100))}
-                    {@const isActive = progress > 0 && progress < 100}
-                    
-                    <div class="main relative inline-grid place-items-center overflow-visible">
-                      <span 
-                        class="syllable relative inline-grid place-items-center text-white/20 whitespace-pre transition-transform duration-500 px-4 py-2 mx-[-1rem] my-[-0.5rem] overflow-visible"
-                        class:translate-y-[-3px]={isActive}
-                        class:is-glowing={isActive}
-                        data-content={syllable.text}
-                        data-duration={duration}
-                        data-delay={delay}
-                        style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
-                      >
-                        <span class="grid-area-[1/1]">{syllable.text}</span>
-                      </span>
-                    </div>
+              <!-- Primary Vocals -->
+              <div class="primary-vocals block text-[2rem] font-semibold tracking-tight leading-[1.2] whitespace-normal">
+                {#each line.words as word}
+                  {#if word.syllables.some(s => !s.isBackground)}
+                    <span class="group inline-flex whitespace-nowrap overflow-visible align-baseline" class:mr-[0.22em]={word.hasTrailingSpace}>
+                      {#each word.syllables.filter(s => !s.isBackground) as syllable}
+                        {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
+                        {@const delay = Math.round((syllable.start - line.start) * 1000)}
+                        {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
+                        {@const progress = line.fullLineHighlight
+                          ? (lineActive ? 100 : 0)
+                          : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
+                        {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
+                        
+                        <div class="main relative inline-grid place-items-center overflow-visible">
+                          <span 
+                            class="syllable relative inline-grid place-items-center text-white/20 whitespace-pre transition-transform duration-500 px-3 py-1.5 -mx-3 -my-1.5 overflow-visible"
+                            class:translate-y-[-3px]={isActive}
+                            class:is-glowing={isActive}
+                            data-content={syllable.text}
+                            data-duration={duration}
+                            data-delay={delay}
+                            style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
+                          >
+                            <span class="grid-area-[1/1]">{syllable.text}</span>
+                          </span>
+                        </div>
+                      {/each}
+                    </span>
+                  {/if}
+                {/each}
+              </div>
+
+              <!-- Background Vocals -->
+              {#if line.words.some(w => w.syllables.some(s => s.isBackground))}
+                <div class="background-vocals flex flex-wrap items-center opacity-60 text-[1.4rem] font-medium text-zinc-400 mt-1 tracking-tight">
+                  {#each line.words as word}
+                    {#if word.syllables.some(s => s.isBackground)}
+                       <span class="inline-flex" class:mr-[0.15em]={word.hasTrailingSpace}>
+                        {#each word.syllables.filter(s => s.isBackground) as syllable}
+                          {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
+                          {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
+                          {@const progress = line.fullLineHighlight
+                            ? (lineActive ? 100 : 0)
+                            : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
+                          {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
+
+                          <span 
+                            class="syllable relative inline-grid place-items-center text-zinc-600 whitespace-pre transition-all duration-500 overflow-visible"
+                            class:is-glowing={isActive}
+                            class:text-white={isActive}
+                            data-content={syllable.text}
+                            style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
+                          >
+                            <span class="grid-area-[1/1]">{syllable.text}</span>
+                          </span>
+                        {/each}
+
+                       </span>
+                    {/if}
                   {/each}
-                </span>
-                {#if word.hasTrailingSpace}
-                  <span class="inline"> </span>
-                {/if}
-              {/each}
+                </div>
+              {/if}
             </div>
           </button>
         </div>
       {/each}
     {/if}
   </div>
-
-  <div class="absolute bottom-0 left-0 w-full h-32 bg-linear-to-t from-zinc-900 via-zinc-900/80 to-transparent pointer-events-none"></div>
 </aside>
 
 <style>
+  .background-vocals .syllable::after {
+    content: attr(data-content);
+    grid-area: 1 / 1;
+    color: white;
+    width: 100%;
+    white-space: pre;
+    opacity: var(--overlay-opacity);
+    -webkit-mask-image: var(--mask);
+    mask-image: var(--mask);
+    text-shadow: none;
+  }
+
   .syllable::after {
     content: attr(data-content);
     grid-area: 1 / 1;
@@ -284,7 +392,11 @@
   }
 
   .syllable.is-glowing::after {
-    text-shadow: 0 0 15px rgba(var(--gradient-color, 255), var(--gradient-color, 255), var(--gradient-color, 255), 0.6);
+    text-shadow: none;
+  }
+
+  .syllable.is-glowing {
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.55)) drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
   }
 
   .grid-area-\[1\/1\] {

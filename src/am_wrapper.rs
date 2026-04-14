@@ -16,9 +16,9 @@ pub async fn get_m3u8(adam_id: String) -> Result<String> {
     m3u8_socket.write_all(adam_id.as_bytes()).await?;
 
     let mut buffer = vec![0u8; 1024];
-    m3u8_socket.read(buffer.as_mut_slice()).await?;
+    let n = m3u8_socket.read(buffer.as_mut_slice()).await?;
 
-    String::from_utf8(buffer)
+    String::from_utf8(buffer[..n].to_vec())
         .map_err(|e| StreamerError::Message(format!("invalid UTF-8 in m3u8 response: {e}")))
 }
 

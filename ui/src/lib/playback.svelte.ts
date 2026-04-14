@@ -33,6 +33,8 @@ class PlaybackState {
     isPlaying = $state(false);
     currentTime = $state(0);
     totalTime = $state(0);
+    lyricsPaneOpen = $state(true);
+    isShuffled = $state(false);
     
     // -- High-precision interpolation --
     smoothTime = $state(0);
@@ -41,6 +43,7 @@ class PlaybackState {
     private rafId: number | null = null;
 
     private activeQueue: QueueTrack[] = [];
+    private originalQueue: QueueTrack[] = [];
     private activeQueueIndex = -1;
     private autoAdvanceInFlight = false;
 
@@ -83,6 +86,10 @@ class PlaybackState {
 
     private async playNextInQueue() {
         if (this.autoAdvanceInFlight) return;
+        await this.playNext();
+    }
+
+    async playNext() {
         const nextIndex = this.activeQueueIndex + 1;
         if (nextIndex < 0 || nextIndex >= this.activeQueue.length) {
             this.isPlaying = false;
@@ -94,10 +101,21 @@ class PlaybackState {
             const next = this.activeQueue[nextIndex];
             this.activeQueueIndex = nextIndex;
             await this.playSong(next.id, next.metadata, { fromAutoNext: true });
-            this.preloadNextTrack();
         } finally {
             this.autoAdvanceInFlight = false;
         }
+    }
+
+    async playPrevious() {
+        const prevIndex = this.activeQueueIndex - 1;
+        if (prevIndex < 0) {
+            await this.seekTo(0);
+            return;
+        }
+
+        const prev = this.activeQueue[prevIndex];
+        this.activeQueueIndex = prevIndex;
+        await this.playSong(prev.id, prev.metadata, { fromAutoNext: true });
     }
 
     async initBridge() {
@@ -142,11 +160,22 @@ class PlaybackState {
     async playSong(id: string, metadata: TrackMetadata, options: PlaySongOptions = {}) {
         try {
             if (options.queue && options.queue.length > 0) {
-                this.activeQueue = options.queue;
-                this.activeQueueIndex = options.startIndex ?? options.queue.findIndex((track) => track.id === id);
+                this.originalQueue = options.queue;
+                if (this.isShuffled) {
+                    const queueCopy = [...options.queue];
+                    const currentIndex = options.startIndex ?? queueCopy.findIndex((track) => track.id === id);
+                    const currentTrack = currentIndex >= 0 ? queueCopy.splice(currentIndex, 1)[0] : null;
+                    const shuffled = this.shuffleArray(queueCopy);
+                    this.activeQueue = currentTrack ? [currentTrack, ...shuffled] : shuffled;
+                    this.activeQueueIndex = 0;
+                } else {
+                    this.activeQueue = options.queue;
+                    this.activeQueueIndex = options.startIndex ?? options.queue.findIndex((track) => track.id === id);
+                }
                 if (this.activeQueueIndex < 0) this.activeQueueIndex = 0;
             } else if (!options.fromAutoNext) {
                 this.activeQueue = [];
+                this.originalQueue = [];
                 this.activeQueueIndex = -1;
             }
 
@@ -199,6 +228,40 @@ class PlaybackState {
         } catch (e) {
             console.error("Failed to seek:", e);
         }
+    }
+
+    toggleLyricsPane() {
+        this.lyricsPaneOpen = !this.lyricsPaneOpen;
+    }
+
+    toggleShuffle() {
+        this.isShuffled = !this.isShuffled;
+        if (this.activeQueue.length <= 1) return;
+
+        if (this.isShuffled) {
+            // Enabling shuffle
+            this.originalQueue = [...this.activeQueue];
+            const currentTrack = this.activeQueue[this.activeQueueIndex];
+            const others = this.activeQueue.filter((_, i) => i !== this.activeQueueIndex);
+            const shuffled = this.shuffleArray(others);
+            this.activeQueue = [currentTrack, ...shuffled];
+            this.activeQueueIndex = 0;
+        } else {
+            // Disabling shuffle
+            const currentTrackId = this.currentTrackId;
+            this.activeQueue = [...this.originalQueue];
+            this.activeQueueIndex = this.activeQueue.findIndex(t => t.id === currentTrackId);
+            if (this.activeQueueIndex < 0) this.activeQueueIndex = 0;
+        }
+    }
+
+    private shuffleArray<T>(array: T[]): T[] {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     }
 
     async playStation(id: string, metadata: StationMetadata) {

@@ -7,7 +7,7 @@
   import Repeat from 'lucide-svelte/icons/repeat';
   import Volume2 from 'lucide-svelte/icons/volume-2';
   import Mic2 from 'lucide-svelte/icons/mic-2';
-  import ListMusic from 'lucide-svelte/icons/list-music';
+  import MicVocal from 'lucide-svelte/icons/mic-vocal';
   import User from 'lucide-svelte/icons/user';
   import Pause from 'lucide-svelte/icons/pause';
   
@@ -67,8 +67,18 @@
   <!-- Controls -->
   <div class="flex flex-col items-center gap-1 w-1/2 max-w-2xl">
     <div class="flex items-center gap-6">
-      <button class="text-zinc-400 hover:text-white transition-colors"><Shuffle class="size-4" /></button>
-      <button class="text-zinc-200 hover:text-white transition-colors"><SkipBack class="size-5" /></button>
+      <button 
+        class="transition-colors {playback.isShuffled ? 'text-red-500' : 'text-zinc-400 hover:text-white'}"
+        onclick={() => playback.toggleShuffle()}
+      >
+        <Shuffle class="size-4" />
+      </button>
+      <button 
+        class="text-zinc-200 hover:text-white transition-colors"
+        onclick={() => playback.playPrevious()}
+      >
+        <SkipBack class="size-5" />
+      </button>
       <button 
         class="w-10 h-10 flex items-center justify-center bg-white text-zinc-950 rounded-full hover:scale-105 transition-transform"
         onclick={() => playback.togglePlayback()}
@@ -79,7 +89,12 @@
           <Play class="size-5 fill-current" />
         {/if}
       </button>
-      <button class="text-zinc-200 hover:text-white transition-colors"><SkipForward class="size-5" /></button>
+      <button 
+        class="text-zinc-200 hover:text-white transition-colors"
+        onclick={() => playback.playNext()}
+      >
+        <SkipForward class="size-5" />
+      </button>
       <button class="text-zinc-400 hover:text-white transition-colors"><Repeat class="size-4" /></button>
     </div>
     <div class="flex items-center gap-3 w-full">
@@ -116,8 +131,15 @@
         </div>
       </div>
     </div>
-    <button class="text-zinc-400 hover:text-red-500 transition-colors"><Mic2 class="size-4" /></button>
-    <button class="text-red-500 transition-colors"><ListMusic class="size-4" /></button>
+    <button
+      class="p-2 rounded-md transition-colors outline-none focus:outline-none focus:ring-0 {playback.lyricsPaneOpen ? 'text-red-500' : 'text-zinc-400 hover:text-white'}"
+      onclick={() => playback.toggleLyricsPane()}
+      aria-label="Toggle lyrics panel"
+      aria-pressed={playback.lyricsPaneOpen}
+      title="Toggle lyrics panel"
+    >
+      <MicVocal class="size-4" />
+    </button>
     <button class="text-zinc-400 hover:text-white transition-colors"><User class="size-4" /></button>
   </div>
 </footer>

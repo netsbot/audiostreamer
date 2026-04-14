@@ -63,6 +63,8 @@
       artwork_url: artworkSrc(station.attributes?.artwork, 600),
     });
   }
+
+  const shelfItemWidth = "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]";
 </script>
 
 <div
@@ -81,11 +83,11 @@
   {#if searchResults.top.length > 0}
     <section class="mb-12">
       <h3 class="text-xl font-bold mb-6 text-white/90">Top Results</h3>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
         {#each searchResults.top.slice(0, 6) as item}
           <button
             type="button"
-            class="flex-shrink-0 w-40 group cursor-pointer transition-all duration-300 text-left"
+            class="{shelfItemWidth} group cursor-pointer transition-all duration-300 text-left snap-start"
             onclick={() => {
               if (item.type === 'songs') {
                 playSong(item, searchResults.songs || []);
@@ -133,13 +135,13 @@
         <h3 class="text-xl font-bold text-white/90">Artists</h3>
         <button class="text-red-500 font-bold text-[10px] uppercase tracking-wider hover:text-red-400">See All</button>
       </div>
-      <div class="flex gap-8 overflow-x-auto pb-4 no-scrollbar">
+      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
         {#each searchResults.artists as artist}
           <div
-            class="flex-shrink-0 w-32 flex flex-col items-center group cursor-pointer text-center"
+            class="{shelfItemWidth} flex flex-col items-center group cursor-pointer text-center snap-start"
           >
             <div
-              class="w-32 h-32 rounded-full overflow-hidden mb-3 border border-white/5 shadow-2xl bg-zinc-900 transition-all duration-300 group-hover:border-white/20"
+              class="w-full aspect-square rounded-full overflow-hidden mb-3 border border-white/5 shadow-2xl bg-zinc-900 transition-all duration-300 group-hover:border-white/20"
             >
               {#if artist.attributes.artwork}
                 <img
@@ -169,11 +171,11 @@
         <h3 class="text-xl font-bold text-white/90">Albums</h3>
         <button class="text-red-500 font-bold text-[10px] uppercase tracking-wider hover:text-red-400">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
         {#each searchResults.albums as album}
           <button
             type="button"
-            class="flex-shrink-0 w-40 group cursor-pointer text-left"
+            class="{shelfItemWidth} group cursor-pointer text-left snap-start"
             onclick={() => openAlbum(album.id)}
           >
             <div
@@ -248,11 +250,11 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
         {#each searchResults.playlists as playlist}
           <button
             type="button"
-            class="flex-shrink-0 w-40 group cursor-pointer text-left"
+            class="{shelfItemWidth} group cursor-pointer text-left snap-start"
             onclick={() => openPlaylist(playlist.id, playlist.type || 'playlists')}
           >
             <div class="aspect-square rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
@@ -280,9 +282,9 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
         {#each searchResults.musicVideos as mv}
-          <div class="flex-shrink-0 w-80 group cursor-pointer">
+          <div class="{shelfItemWidth} group cursor-pointer snap-start">
             <div class="aspect-video rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
               <img
                 class="w-full h-full object-cover"
@@ -313,14 +315,14 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-8 overflow-x-auto pb-6 no-scrollbar">
+      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-6 snap-x snap-mandatory">
         {#each searchResults.stations as station}
           <button
             type="button"
-            class="flex-shrink-0 w-40 flex flex-col group cursor-pointer text-center"
+            class="{shelfItemWidth} flex flex-col group cursor-pointer text-center snap-start"
             onclick={() => playStationItem(station)}
           >
-            <div class="w-40 h-40 rounded-xl overflow-hidden mb-4 border border-white/5 shadow-2xl relative bg-zinc-900 group-hover:border-white/20 transition-all">
+            <div class="w-full aspect-square rounded-xl overflow-hidden mb-4 border border-white/5 shadow-2xl relative bg-zinc-900 group-hover:border-white/20 transition-all">
               {#if station.attributes.artwork}
                 <img
                   class="w-full h-full object-cover"

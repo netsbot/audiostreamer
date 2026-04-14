@@ -135,7 +135,7 @@
 </script>
 
 <main
-  class="ml-64 mr-[400px] flex-1 overflow-y-auto no-scrollbar p-12 bg-zinc-950 pb-32"
+  class="min-w-0 flex-1 overflow-y-auto no-scrollbar p-12 bg-zinc-950 pb-32"
 >
   <SearchHeader 
     bind:searchQuery={searchQuery} 

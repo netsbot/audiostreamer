@@ -22,7 +22,7 @@
   ];
 </script>
 
-<aside class="fixed left-0 top-0 h-[calc(100vh-80px)] w-64 border-r border-white/5 bg-zinc-900/50 flex flex-col py-8 px-6 gap-y-4">
+<aside class="relative h-full w-56 shrink-0 border-r border-white/5 bg-zinc-900/50 flex flex-col py-8 px-5 gap-y-4">
   <nav class="flex flex-col gap-y-1">
     {#each navItems as item}
       <a

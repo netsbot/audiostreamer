@@ -215,10 +215,10 @@
       {#if albumData.views?.['related-albums']?.data?.length > 0}
         <section class="mt-20">
           <h3 class="text-xl font-bold mb-6 text-white/90">Related Albums</h3>
-          <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4">
+          <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
             {#each albumData.views['related-albums'].data as related}
               <button 
-                class="flex-shrink-0 w-40 text-left group transition-all"
+                class="shrink-0 w-44 lg:w-[calc((100%-6rem)/5)] text-left group transition-all snap-start"
                 onclick={() => {
                   albumId = related.id;
                   window.scrollTo({ top: 0, behavior: 'smooth' });

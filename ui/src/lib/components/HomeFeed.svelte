@@ -19,6 +19,14 @@
   let isLoading = $state(true);
   let error = $state<string | null>(null);
 
+  const heroWidthClass = $derived(playback.lyricsPaneOpen
+    ? "lg:w-[calc((100%-4.5rem)/4)]"
+    : "lg:w-[calc((100%-6rem)/5)]");
+
+  const standardShelfWidth = $derived(playback.lyricsPaneOpen
+    ? "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]"
+    : "shrink-0 w-44 lg:w-[calc((100%-7.5rem)/6)]");
+
   function activateOnKey(event: KeyboardEvent, action: () => void) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -473,7 +481,7 @@
     return '';
   })()}
   {#if resolved.attributes}
-    <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] lg:w-[calc((100%-4.5rem)/4)] xl:w-[calc((100%-4.5rem)/4)] max-w-none snap-start group cursor-pointer text-left">
+    <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] {heroWidthClass} max-w-none snap-start group cursor-pointer text-left">
       <div 
         class="product-lockup relative rounded-2xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'};"
@@ -546,7 +554,7 @@
   {@const resolved = resolveResource(item)}
   {@const artwork = getItemArtworkObject(resolved)}
   {#if resolved.attributes}
-    <div class="flex-shrink-0 {widthClass} group cursor-pointer text-left">
+    <div class="group cursor-pointer text-left {widthClass}">
       <div 
         class="product-lockup relative {isRoundArtwork(resolved) ? 'rounded-full' : 'rounded-xl'} overflow-hidden aspect-square mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'}; --aspect-ratio: 1;"
@@ -641,7 +649,6 @@
       {@const subtitle = getShelfSubtitle(rec)}
       {@const kind = rec.attributes?.display?.kind || ""}
       {@const isRecentlyPlayedShelf = title.toLowerCase().includes("recently played")}
-      {@const recentlyPlayedWidth = "w-44 lg:w-[calc((100%-5rem)/5)] lg:max-w-none"}
       {#if items.length > 0}
         <section
           class="mb-14"
@@ -674,23 +681,23 @@
           {:else if kind === "MusicCircleCoverShelf"}
             <div class="flex gap-7 overflow-x-auto no-scrollbar pb-4">
               {#each items as item}
-                {@render Card(item)}
+                {@render Card(item, standardShelfWidth)}
               {/each}
             </div>
 
           <!-- Cover Grid — 2-column grid -->
           {:else if kind === "MusicCoverGrid"}
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
               {#each items.slice(0, 8) as item}
-                {@render Card(item)}
+                {@render Card(item, standardShelfWidth)}
               {/each}
             </div>
 
           <!-- Default: Horizontal Cover Shelf (most common) -->
           {:else}
-            <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4">
+            <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
               {#each items as item}
-                {@render Card(item, isRecentlyPlayedShelf ? recentlyPlayedWidth : "w-44")}
+                {@render Card(item, standardShelfWidth)}
               {/each}
             </div>
           {/if}
