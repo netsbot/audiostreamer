@@ -59,16 +59,37 @@
     if (albumId) fetchAlbumDetails();
   });
 
-  import { playSong } from "$lib/playbackStore";
+  import { playback, type QueueTrack } from "$lib/playback.svelte";
 
-  async function playTrack(track: any) {
+  function buildAlbumQueue(): QueueTrack[] {
+    const tracks = albumData?.relationships?.tracks?.data || [];
+    return tracks.map((track: any) => ({
+      id: track.id,
+      metadata: {
+        title: track.attributes.name,
+        artist: track.attributes.artistName,
+        album: albumData.attributes.name,
+        artwork_url: getArtworkUrl(albumData.attributes.artwork, 600),
+        duration_ms: track.attributes.durationInMillis,
+      },
+    }));
+  }
+
+  async function playTrack(track: any, index?: number) {
     console.log("Playing track:", track.id);
-    await playSong(track.id, {
+    const queue = buildAlbumQueue();
+    const startIndex = typeof index === "number"
+      ? index
+      : queue.findIndex((entry) => entry.id === track.id);
+    await playback.playSong(track.id, {
         title: track.attributes.name,
         artist: track.attributes.artistName,
         album: albumData.attributes.name,
         artwork_url: getArtworkUrl(albumData.attributes.artwork, 600),
         duration_ms: track.attributes.durationInMillis
+    }, {
+      queue,
+      startIndex,
     });
   }
 

@@ -24,8 +24,8 @@ libc = "0.2"
 cpal = "0.15"
 ffmpeg-next = { version = "8.1", features = ["codec", "software-resampling", "format"] }
 ffmpeg-sys-next = "8.1"
-#tauri = { version = "2", default-features = false, features = ["cef"] }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", default-features = false, features = ["cef"] }
+#tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 
@@ -33,6 +33,6 @@ tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 [dev-dependencies]
 tempfile = "3"
 
-#[patch.crates-io.tauri]
-#git = "https://github.com/tauri-apps/tauri"
-#branch = "feat/cef"
+[patch.crates-io]
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+cef-dll-sys = { path = "patches/cef-rs/sys" }

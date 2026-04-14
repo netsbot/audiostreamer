@@ -1,9 +1,13 @@
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, ORIGIN, USER_AGENT};
+use reqwest::Url;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UnixStream};
 
 use crate::error::{Result, StreamerError};
+
+pub const DEFAULT_LYRICS_REGION: &str = "vn";
+pub const DEFAULT_LYRICS_LANGUAGE: &str = "en-gb";
 
 pub async fn get_m3u8(adam_id: String) -> Result<String> {
     let mut m3u8_socket = TcpStream::connect("localhost:20020").await?;
@@ -37,10 +41,15 @@ pub async fn get_music_token() -> Result<String> {
 }
 
 pub async fn get_lyrics(adam_id: &str, region: &str, language: &str) -> Result<String> {
-    let url = format!(
-        "https://amp-api.music.apple.com/v1/catalog/{}/songs/{}/syllable-lyrics?l[lyrics]={}&extend=ttmlLocalizations&l[script]=en-Latn",
-        region, adam_id, language
-    );
+    let mut url = Url::parse(&format!(
+        "https://amp-api.music.apple.com/v1/catalog/{}/songs/{}/syllable-lyrics",
+        region, adam_id
+    ))
+    .map_err(|error| StreamerError::Message(format!("invalid lyrics URL for {adam_id}: {error}")))?;
+    url.query_pairs_mut()
+        .append_pair("l[lyrics]", language)
+        .append_pair("l[script]", "en-Latn")
+        .append_pair("extend", "ttmlLocalizations");
 
     let mut headers = HeaderMap::new();
     headers.insert(

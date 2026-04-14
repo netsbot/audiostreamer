@@ -5,7 +5,29 @@
   import Play from "lucide-svelte/icons/play";
   import Shuffle from "lucide-svelte/icons/shuffle";
   import Loader2 from "lucide-svelte/icons/loader-2";
-  import { playSong } from "$lib/playbackStore";
+  import { playback, type QueueTrack } from "$lib/playback.svelte";
+    function buildPlaylistQueue(): QueueTrack[] {
+      const tracks = playlistData?.relationships?.tracks?.data || [];
+      return tracks
+        .map((track: any) => {
+          const resolved = resolveTrack(track);
+          if (!resolved.id) {
+            return null;
+          }
+          return {
+            id: resolved.id,
+            metadata: {
+              title: resolved.attrs.name || "Unknown",
+              artist: resolved.attrs.artistName || "Unknown Artist",
+              album: resolved.attrs.albumName || playlistData?.attributes?.name || "",
+              artwork_url: getArtworkUrl(resolved.attrs.artwork || playlistData?.attributes?.artwork, 600),
+              duration_ms: resolved.attrs.durationInMillis,
+            },
+          } as QueueTrack;
+        })
+        .filter((entry: QueueTrack | null): entry is QueueTrack => Boolean(entry));
+    }
+
   import TrackList from "./TrackList.svelte";
 
   let { playlistId = "", playlistType = "playlists" } = $props();
@@ -68,16 +90,24 @@
     }
   }
 
-  async function playTrack(track: any) {
+  async function playTrack(track: any, index?: number) {
     const resolved = resolveTrack(track);
     if (!resolved.id) return;
 
-    await playSong(resolved.id, {
+    const queue = buildPlaylistQueue();
+    const startIndex = typeof index === "number"
+      ? index
+      : queue.findIndex((entry) => entry.id === resolved.id);
+
+    await playback.playSong(resolved.id, {
       title: resolved.attrs.name || "Unknown",
       artist: resolved.attrs.artistName || "Unknown Artist",
       album: resolved.attrs.albumName || playlistData?.attributes?.name || "",
       artwork_url: getArtworkUrl(resolved.attrs.artwork || playlistData?.attributes?.artwork, 600),
       duration_ms: resolved.attrs.durationInMillis,
+    }, {
+      queue,
+      startIndex,
     });
   }
 

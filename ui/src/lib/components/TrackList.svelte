@@ -10,7 +10,7 @@
   let {
     tracks = [] as any[],
     resolveTrack = (track: any): ResolvedTrack => ({ id: track?.id, attrs: track?.attributes || {} }),
-    onPlay = (_track: any) => {},
+    onPlay = (_track: any, _index: number) => {},
     getArtworkUrl = (_artwork: any, _size?: number) => "",
     fallbackArtwork = null as any,
   } = $props();
@@ -37,7 +37,7 @@
       <button
         type="button"
         class="grid grid-cols-[1fr_8rem] items-center px-4 py-3 rounded-xl hover:bg-white/[0.04] transition-all group border border-transparent hover:border-white/5 text-left"
-        onclick={() => onPlay(track)}
+        onclick={() => onPlay(track, i)}
       >
         <div class="flex items-center min-w-0">
           <div class="text-zinc-500 font-bold text-sm relative w-8 flex justify-start items-center flex-shrink-0">

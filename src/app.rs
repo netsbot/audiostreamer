@@ -119,6 +119,16 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
+pub async fn preload_song(adam_id: String) -> Result<()> {
+    let client = AppleMusicClient::new().await.map_err(|e| {
+        crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}"))
+    })?;
+
+    // Constructing Song warms playlist/init caches and triggers segment prefetch.
+    let _song = Song::new(&adam_id, client).await?;
+    Ok(())
+}
+
 // #[cfg(test)]
 // mod tests {
 //     use std::fs::File;

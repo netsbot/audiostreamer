@@ -7,7 +7,7 @@
   import Play from "lucide-svelte/icons/play";
   import MoreHorizontal from "lucide-svelte/icons/more-horizontal";
   import Loader2 from "lucide-svelte/icons/loader-2";
-  import { playSong, playStation } from "$lib/playbackStore";
+  import { playback } from "$lib/playback.svelte";
 
   let {
     openAlbum = (id: string) => {},
@@ -361,7 +361,7 @@
     if (type === "albums" || type === "library-albums") {
       openAlbum(item.id);
     } else if (type === "songs") {
-      await playSong(item.id, {
+      await playback.playSong(item.id, {
         title: item.attributes.name,
         artist: item.attributes.artistName || "",
         album: item.attributes.albumName || "",
@@ -369,7 +369,7 @@
         duration_ms: item.attributes.durationInMillis,
       });
     } else if (type === "stations") {
-      await playStation(item.id, {
+      await playback.playStation(item.id, {
         name: item.attributes.name || "Station",
         subtitle: item.attributes.editorialNotes?.short || item.attributes.description?.short || "",
         artwork_url: getArtworkUrl(item.attributes.artwork, 600),

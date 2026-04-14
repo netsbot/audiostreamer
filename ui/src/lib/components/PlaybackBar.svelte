@@ -11,25 +11,25 @@
   import User from 'lucide-svelte/icons/user';
   import Pause from 'lucide-svelte/icons/pause';
   
-  import { currentTrack, isPlaying, currentTime, totalTime, togglePlayback, seekTo } from '$lib/playbackStore';
+  import { playback } from '$lib/playback.svelte';
 
   function handleSeek(e: MouseEvent) {
-    if (!$totalTime) return;
+    if (!playback.totalTime) return;
     const target = e.currentTarget as HTMLDivElement;
     const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, x / rect.width));
-    seekTo(percentage * $totalTime);
+    playback.seekTo(percentage * playback.totalTime);
   }
 
   function handleSeekKeydown(e: KeyboardEvent) {
-    if (!$totalTime) return;
+    if (!playback.totalTime) return;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      seekTo(Math.max(0, $currentTime - 5));
+      playback.seekTo(Math.max(0, playback.currentTime - 5));
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      seekTo(Math.min($totalTime, $currentTime + 5));
+      playback.seekTo(Math.min(playback.totalTime, playback.currentTime + 5));
     }
   }
 
@@ -52,15 +52,15 @@
   <!-- Track Info -->
   <div class="flex items-center gap-4 w-1/4">
     <div class="relative w-12 h-12 overflow-hidden rounded-lg shadow-lg bg-zinc-900 flex items-center justify-center">
-      {#if $currentTrack?.artwork_url}
-        <img src={$currentTrack.artwork_url} alt={$currentTrack.title} class="w-full h-full object-cover" />
+      {#if playback.currentTrack?.artwork_url}
+        <img src={playback.currentTrack.artwork_url} alt={playback.currentTrack.title} class="w-full h-full object-cover" />
       {:else}
         <Music class="size-6 text-zinc-700" />
       {/if}
     </div>
     <div class="flex flex-col overflow-hidden">
-      <span class="text-sm font-bold truncate text-white">{$currentTrack?.title || defaultTrack.title}</span>
-      <span class="text-xs text-zinc-400 truncate">{$currentTrack?.artist || defaultTrack.artist} {#if $currentTrack?.album} — {$currentTrack.album}{/if}</span>
+      <span class="text-sm font-bold truncate text-white">{playback.currentTrack?.title || defaultTrack.title}</span>
+      <span class="text-xs text-zinc-400 truncate">{playback.currentTrack?.artist || defaultTrack.artist} {#if playback.currentTrack?.album} — {playback.currentTrack.album}{/if}</span>
     </div>
   </div>
 
@@ -71,9 +71,9 @@
       <button class="text-zinc-200 hover:text-white transition-colors"><SkipBack class="size-5" /></button>
       <button 
         class="w-10 h-10 flex items-center justify-center bg-white text-zinc-950 rounded-full hover:scale-105 transition-transform"
-        onclick={togglePlayback}
+        onclick={() => playback.togglePlayback()}
       >
-        {#if $isPlaying}
+        {#if playback.isPlaying}
           <Pause class="size-5 fill-current" />
         {:else}
           <Play class="size-5 fill-current" />
@@ -83,26 +83,26 @@
       <button class="text-zinc-400 hover:text-white transition-colors"><Repeat class="size-4" /></button>
     </div>
     <div class="flex items-center gap-3 w-full">
-      <span class="text-[10px] text-zinc-500 font-medium font-mono w-10">{formatTime($currentTime)}</span>
+      <span class="text-[10px] text-zinc-500 font-medium font-mono w-10">{formatTime(playback.currentTime)}</span>
       <div
         class="flex-1 px-1 group relative cursor-pointer py-4 -my-4"
         role="slider"
         tabindex="0"
         aria-label="Seek"
         aria-valuemin="0"
-        aria-valuemax={$totalTime}
-        aria-valuenow={$currentTime}
+        aria-valuemax={playback.totalTime}
+        aria-valuenow={playback.currentTime}
         onclick={handleSeek}
         onkeydown={handleSeekKeydown}
       >
         <div class="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
             <div 
                 class="h-full bg-red-600 transition-all duration-300 ease-out" 
-                style="width: {$totalTime > 0 ? Math.min(($currentTime / $totalTime) * 100, 100) : 0}%"
+                style="width: {playback.totalTime > 0 ? Math.min((playback.currentTime / playback.totalTime) * 100, 100) : 0}%"
             ></div>
         </div>
       </div>
-      <span class="text-[10px] text-zinc-500 font-medium font-mono w-10 text-right">{formatTime($totalTime)}</span>
+      <span class="text-[10px] text-zinc-500 font-medium font-mono w-10 text-right">{formatTime(playback.totalTime)}</span>
     </div>
   </div>
 

@@ -5,7 +5,7 @@
   import Radio from "lucide-svelte/icons/radio";
   import Search from "lucide-svelte/icons/search";
   import { fly } from "svelte/transition";
-  import { playSong as playSongInStore, playStation } from "$lib/playbackStore";
+  import { playback, type QueueTrack } from "$lib/playback.svelte";
 
   let { 
     searchResults, 
@@ -27,19 +27,37 @@
     return getArtworkUrl(artwork, size);
   }
 
-  async function playSong(item: any) {
+  function buildSongQueue(items: any[]): QueueTrack[] {
+    return items.map((song) => ({
+      id: song.id,
+      metadata: {
+        title: song.attributes.name,
+        artist: song.attributes.artistName,
+        album: song.attributes.albumName || "",
+        artwork_url: getArtworkUrl(song.attributes.artwork, 600),
+        duration_ms: song.attributes.durationInMillis,
+      },
+    }));
+  }
+
+  async function playSong(item: any, queueSource: any[] = []) {
     console.log("playing song:", item.id);
-    await playSongInStore(item.id, {
+    const queue = buildSongQueue(queueSource.length > 0 ? queueSource : [item]);
+    const startIndex = queue.findIndex((track) => track.id === item.id);
+    await playback.playSong(item.id, {
         title: item.attributes.name,
         artist: item.attributes.artistName,
         album: item.attributes.albumName || "",
         artwork_url: getArtworkUrl(item.attributes.artwork, 600),
         duration_ms: item.attributes.durationInMillis
+    }, {
+        queue,
+        startIndex,
     });
   }
 
   async function playStationItem(station: any) {
-    await playStation(station.id, {
+    await playback.playStation(station.id, {
       name: station.attributes?.name || "Station",
       subtitle: station.attributes?.editorialNotes?.short || station.attributes?.description?.short || "",
       artwork_url: artworkSrc(station.attributes?.artwork, 600),
@@ -70,7 +88,7 @@
             class="flex-shrink-0 w-40 group cursor-pointer transition-all duration-300 text-left"
             onclick={() => {
               if (item.type === 'songs') {
-                playSong(item);
+                playSong(item, searchResults.songs || []);
               } else if (item.type === 'playlists' || item.type === 'library-playlists') {
                 openPlaylist(item.id, item.type);
               } else {
@@ -195,7 +213,7 @@
           <button
             type="button"
             class="bg-white/[0.03] backdrop-blur-3xl p-2 rounded-lg flex items-center gap-3 group hover:bg-white/[0.08] cursor-pointer border border-white/5 transition-all duration-200 text-left"
-            onclick={() => playSong(song)}
+            onclick={() => playSong(song, searchResults.songs || [])}
           >
             <div class="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 shadow-lg relative border border-white/5">
               <img

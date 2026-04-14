@@ -7,9 +7,165 @@ use crate::sources::utils;
 use crate::sources::utils::MemFile;
 use crate::{am_wrapper, gpac};
 use async_trait::async_trait;
+use m3u8_rs::ByteRange;
 use m3u8_rs::MediaPlaylist;
 use reqwest::Url;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use std::sync::OnceLock;
 use tokio::net::UnixStream;
+use tokio::sync::RwLock;
+
+#[derive(Debug, Clone)]
+struct CachedSongBootstrap {
+    m3u8_url: String,
+    media_playlist: MediaPlaylist,
+    codec_id: String,
+    init_section_data: Vec<u8>,
+}
+
+const DECODED_SEGMENT_CACHE_MAX_ENTRIES: usize = 512;
+const DECODED_SEGMENT_CACHE_MAX_BYTES: usize = 512 * 1024 * 1024;
+
+#[derive(Debug, Default)]
+struct DecodedSegmentCache {
+    map: HashMap<String, Arc<AudioChunk>>,
+    lru: VecDeque<String>,
+    total_bytes: usize,
+}
+
+impl DecodedSegmentCache {
+    fn get(&mut self, key: &str) -> Option<Arc<AudioChunk>> {
+        let value = self.map.get(key)?.clone();
+        self.touch(key);
+        Some(value)
+    }
+
+    fn insert(&mut self, key: String, value: Arc<AudioChunk>) {
+        let value_bytes = estimate_audio_chunk_bytes(&value);
+        if let Some(prev) = self.map.remove(&key) {
+            self.total_bytes = self
+                .total_bytes
+                .saturating_sub(estimate_audio_chunk_bytes(&prev));
+            self.remove_key_from_lru(&key);
+        }
+
+        self.total_bytes = self.total_bytes.saturating_add(value_bytes);
+        self.map.insert(key.clone(), value);
+        self.lru.push_back(key);
+        self.evict_if_needed();
+    }
+
+    fn touch(&mut self, key: &str) {
+        self.remove_key_from_lru(key);
+        self.lru.push_back(key.to_string());
+    }
+
+    fn remove_key_from_lru(&mut self, key: &str) {
+        if let Some(pos) = self.lru.iter().position(|k| k == key) {
+            self.lru.remove(pos);
+        }
+    }
+
+    fn evict_if_needed(&mut self) {
+        while self.map.len() > DECODED_SEGMENT_CACHE_MAX_ENTRIES
+            || self.total_bytes > DECODED_SEGMENT_CACHE_MAX_BYTES
+        {
+            let Some(oldest_key) = self.lru.pop_front() else {
+                break;
+            };
+            if let Some(oldest) = self.map.remove(&oldest_key) {
+                self.total_bytes = self
+                    .total_bytes
+                    .saturating_sub(estimate_audio_chunk_bytes(&oldest));
+            }
+        }
+    }
+}
+
+fn estimate_audio_chunk_bytes(chunk: &AudioChunk) -> usize {
+    match &chunk.samples {
+        SampleBuffer::I16(v) => v.len() * std::mem::size_of::<i16>(),
+        SampleBuffer::I32(v) => v.len() * std::mem::size_of::<i32>(),
+        SampleBuffer::F32(v) => v.len() * std::mem::size_of::<f32>(),
+    }
+}
+
+fn decoded_segment_cache() -> &'static RwLock<DecodedSegmentCache> {
+    static CACHE: OnceLock<RwLock<DecodedSegmentCache>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(DecodedSegmentCache::default()))
+}
+
+fn song_bootstrap_cache() -> &'static RwLock<HashMap<String, CachedSongBootstrap>> {
+    static CACHE: OnceLock<RwLock<HashMap<String, CachedSongBootstrap>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+async fn load_song_bootstrap(adam_id: &str, client: &AppleMusicClient) -> Result<CachedSongBootstrap> {
+    {
+        let cache = song_bootstrap_cache().read().await;
+        if let Some(cached) = cache.get(adam_id) {
+            log::info!("[Song] cache hit for {}", adam_id);
+            return Ok(cached.clone());
+        }
+    }
+
+    log::info!("[Song] cache miss for {}, loading playlists", adam_id);
+    let m3u8_url = am_wrapper::get_m3u8(adam_id.to_string())
+        .await
+        .map_err(|e| {
+            StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}"))
+        })?;
+    let (media_playlist, codec_id) = utils::extract_media_playlist(client, &m3u8_url, utils::Codec::Alac)
+        .await
+        .map_err(|e| {
+            StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}"))
+        })?;
+
+    let init_section = media_playlist
+        .segments
+        .first()
+        .ok_or_else(|| {
+            StreamerError::Unsupported(format!(
+                "playlist for {adam_id} does not contain an init segment"
+            ))
+        })?
+        .map
+        .clone()
+        .ok_or_else(|| {
+            StreamerError::Unsupported(format!(
+                "init segment for {adam_id} does not contain a map section"
+            ))
+        })?;
+
+    let init_section_url = Url::parse(&m3u8_url)
+        .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
+        .join(init_section.uri.as_str())
+        .map_err(|e| {
+            StreamerError::Message(format!("invalid init segment URL for {adam_id}: {e}"))
+        })?;
+
+    let init_section_data = client
+        .download_byte_range(
+            init_section_url.as_str(),
+            init_section.byte_range.unwrap_or_default(),
+        )
+        .await?;
+
+    let bootstrap = CachedSongBootstrap {
+        m3u8_url,
+        media_playlist,
+        codec_id,
+        init_section_data,
+    };
+
+    {
+        let mut cache = song_bootstrap_cache().write().await;
+        cache.insert(adam_id.to_string(), bootstrap.clone());
+    }
+
+    Ok(bootstrap)
+}
 
 #[derive(Debug)]
 pub struct Song {
@@ -20,27 +176,21 @@ pub struct Song {
     gpac_iso_file: gpac::IsoFile,
     current_segment: usize,
     next_sample_number: u32,
+    track_timescale: u32,
+    pending_seek_offset_seconds: Option<f64>,
     base_url: Url,
     keys: Vec<String>,
     decoder: crate::audio::decoder::AlacDecoder,
 }
 
 impl Song {
+    const PREFETCH_WINDOW_SEGMENTS: usize = 4;
+
     pub async fn new(adam_id: &str, client: AppleMusicClient) -> Result<Self> {
-        println!("[Song] fetching media playlist for: {}", adam_id);
-        let m3u8_url = am_wrapper::get_m3u8(adam_id.to_string())
-            .await
-            .map_err(|e| {
-                StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}"))
-            })?;
-        let (media_playlist, codec_id) =
-            utils::extract_media_playlist(&client, &m3u8_url, utils::Codec::Alac)
-                .await
-                .map_err(|e| {
-                    StreamerError::Message(format!(
-                        "failed to load media playlist for {adam_id}: {e}"
-                    ))
-                })?;
+        let bootstrap = load_song_bootstrap(adam_id, &client).await?;
+        let m3u8_url = bootstrap.m3u8_url;
+        let media_playlist = bootstrap.media_playlist;
+        let codec_id = bootstrap.codec_id;
 
         let (sample_rate, bit_depth) = utils::parse_alac_quality_from_codec_id(codec_id.as_str());
         let sample_rate = sample_rate.ok_or_else(|| {
@@ -54,49 +204,21 @@ impl Song {
             ))
         })?;
 
-        let init_section = media_playlist
-            .segments
-            .first()
-            .ok_or_else(|| {
-                StreamerError::Unsupported(format!(
-                    "playlist for {adam_id} does not contain an init segment"
-                ))
-            })?
-            .map
-            .clone()
-            .ok_or_else(|| {
-                StreamerError::Unsupported(format!(
-                    "init segment for {adam_id} does not contain a map section"
-                ))
-            })?;
-
-        let init_section_url = Url::parse(&m3u8_url)
-            .map_err(|e| StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}")))?
-            .join(init_section.uri.as_str())
-            .map_err(|e| {
-                StreamerError::Message(format!("invalid init segment URL for {adam_id}: {e}"))
-            })?;
-        let init_section_data = client
-            .download_byte_range(
-                init_section_url.as_str(),
-                init_section.byte_range.unwrap_or_default(),
-            )
-            .await?;
-
         let mut raw_mp4 = MemFile::new().map_err(|e| {
             StreamerError::Message(format!("failed to create memfd for {adam_id}: {e}"))
         })?;
         raw_mp4
-            .write_all(init_section_data.as_slice())
+            .write_all(bootstrap.init_section_data.as_slice())
             .map_err(|e| {
                 StreamerError::Message(format!("failed to write init segment for {adam_id}: {e}"))
             })?;
 
         let gpac_iso_file = gpac::IsoFile::open_progressive(raw_mp4.path.as_str())?;
+        let track_timescale = gpac_iso_file.media_timescale(1).max(1);
 
         let decoder = crate::audio::decoder::AlacDecoder::new(sample_rate, 2, bit_depth)?;
 
-        Ok(Self {
+        let song = Self {
             adam_id: adam_id.to_string(),
             keys: utils::collect_key_uris(&media_playlist),
             media_playlist,
@@ -105,6 +227,8 @@ impl Song {
             raw_mp4,
             current_segment: 0,
             next_sample_number: 1,
+            track_timescale,
+            pending_seek_offset_seconds: None,
             base_url: Url::parse(&m3u8_url)
                 .map_err(|e| {
                     StreamerError::Message(format!("invalid playlist URL {m3u8_url}: {e}"))
@@ -114,16 +238,23 @@ impl Song {
                     StreamerError::Message(format!("failed to derive base URL for {adam_id}: {e}"))
                 })?,
             decoder,
-        })
+        };
+
+        // Warm initial segments for faster first playback/auto-next transitions.
+        song.predownload_upcoming_segments(Self::PREFETCH_WINDOW_SEGMENTS);
+
+        Ok(song)
     }
 
     pub async fn append_next_segment_and_collect_samples(
         &mut self,
         track: u32,
-    ) -> Result<Vec<gpac::TrackSample>> {
+    ) -> Result<(Vec<gpac::TrackSample>, usize)> {
         if self.current_segment >= self.media_playlist.segments.len() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), self.current_segment));
         }
+
+        let segment_index = self.current_segment;
 
         let (segment_uri, byte_range) = {
             let segment = &self.media_playlist.segments[self.current_segment];
@@ -150,17 +281,109 @@ impl Song {
 
         self.current_segment += 1;
 
-        self.gpac_iso_file
-            .read_new_samples(track, &mut self.next_sample_number)
+        self.predownload_upcoming_segments(Self::PREFETCH_WINDOW_SEGMENTS);
+
+        let samples = self
+            .gpac_iso_file
+            .read_new_samples(track, &mut self.next_sample_number)?;
+        Ok((samples, segment_index))
+    }
+
+    fn predownload_upcoming_segments(&self, window: usize) {
+        if window == 0 {
+            return;
+        }
+
+        let start = self.current_segment;
+        let end = (start + window).min(self.media_playlist.segments.len());
+        for idx in start..end {
+            let segment = &self.media_playlist.segments[idx];
+            let byte_range = segment.byte_range.clone().unwrap_or(ByteRange {
+                length: 0,
+                offset: Some(0),
+            });
+
+            if byte_range.length == 0 {
+                continue;
+            }
+
+            let Ok(segment_url) = self.base_url.join(segment.uri.as_str()) else {
+                continue;
+            };
+
+            self.client
+                .prefetch_byte_range(segment_url.to_string(), byte_range);
+        }
+    }
+
+    fn apply_pending_seek_offset(&mut self, samples: &mut Vec<gpac::TrackSample>) {
+        let Some(mut remaining_seconds) = self.pending_seek_offset_seconds else {
+            return;
+        };
+
+        if remaining_seconds <= 0.0 {
+            self.pending_seek_offset_seconds = None;
+            return;
+        }
+
+        let timescale = self.track_timescale.max(1) as f64;
+        let mut drop_count = 0usize;
+        for sample in samples.iter() {
+            if remaining_seconds <= 0.0 {
+                break;
+            }
+            remaining_seconds -= sample.duration as f64 / timescale;
+            drop_count += 1;
+        }
+
+        if drop_count > 0 {
+            samples.drain(0..drop_count);
+        }
+
+        if remaining_seconds <= 0.0 {
+            self.pending_seek_offset_seconds = None;
+        } else {
+            self.pending_seek_offset_seconds = Some(remaining_seconds);
+        }
     }
 }
 
 #[async_trait]
 impl AudioSource for Song {
     async fn next_chunk(&mut self, _max_samples: usize) -> Result<Option<AudioChunk>> {
-        let new_samples = self.append_next_segment_and_collect_samples(1).await?;
-        if new_samples.is_empty() {
-            return Ok(None);
+        let (mut new_samples, mut segment_index) = self.append_next_segment_and_collect_samples(1).await?;
+        let mut trimmed_by_seek = false;
+
+        loop {
+            let had_pending_seek = self.pending_seek_offset_seconds.is_some();
+            self.apply_pending_seek_offset(&mut new_samples);
+            if had_pending_seek {
+                trimmed_by_seek = true;
+            }
+            if !new_samples.is_empty() {
+                break;
+            }
+
+            if self.current_segment >= self.media_playlist.segments.len() {
+                return Ok(None);
+            }
+
+            let (samples, idx) = self.append_next_segment_and_collect_samples(1).await?;
+            new_samples = samples;
+            segment_index = idx;
+            if new_samples.is_empty() {
+                return Ok(None);
+            }
+        }
+
+        if !trimmed_by_seek {
+            let cache_key = format!("{}:{}", self.adam_id, segment_index);
+            {
+                let mut cache = decoded_segment_cache().write().await;
+                if let Some(cached_chunk) = cache.get(&cache_key) {
+                    return Ok(Some((*cached_chunk).clone()));
+                }
+            }
         }
 
         let mut stream = UnixStream::connect(
@@ -199,30 +422,52 @@ impl AudioSource for Song {
             }
         }
 
-        Ok(Some(AudioChunk {
+        let chunk = AudioChunk {
             samples: pcm_samples.unwrap_or(SampleBuffer::I16(Vec::new())),
             sample_rate: self.decoder.sample_rate(),
             channels: self.decoder.channels(),
-        }))
+        };
+
+        if !trimmed_by_seek {
+            let cache_key = format!("{}:{}", self.adam_id, segment_index);
+            let mut cache = decoded_segment_cache().write().await;
+            cache.insert(cache_key, Arc::new(chunk.clone()));
+        }
+
+        Ok(Some(chunk))
     }
 
     async fn seek(&mut self, seconds: f64) -> Result<()> {
-        let mut accumulated_time = 0.0;
-        let mut target_segment = 0;
+        let target_seconds = seconds.max(0.0);
+        let mut accumulated_time = 0.0f64;
+        let mut target_segment = 0usize;
+        let mut segment_start_time = 0.0f64;
         
         for (i, segment) in self.media_playlist.segments.iter().enumerate() {
-            if (accumulated_time + segment.duration) as f64 > seconds {
+            let segment_duration = segment.duration as f64;
+            if accumulated_time + segment_duration > target_seconds {
                 target_segment = i;
+                segment_start_time = accumulated_time;
                 break;
             }
-            accumulated_time += segment.duration;
+            accumulated_time += segment_duration;
             target_segment = i;
+            segment_start_time = accumulated_time;
         }
         
-        log::info!("[Song] seeking to {}s -> segment {}/{}", seconds, target_segment + 1, self.media_playlist.segments.len());
+        let in_segment_offset = (target_seconds - segment_start_time).max(0.0);
+        log::info!(
+            "[Song] seeking to {}s -> segment {}/{} offset={}s",
+            target_seconds,
+            target_segment + 1,
+            self.media_playlist.segments.len(),
+            in_segment_offset
+        );
         
         // Reset playback state
         self.current_segment = target_segment;
+        self.pending_seek_offset_seconds = Some(in_segment_offset);
+        self.predownload_upcoming_segments(Self::PREFETCH_WINDOW_SEGMENTS);
         
         // Note: next_sample_number is tricky because we're jumping segments.
         // In fMP4, sample numbers are often global or relative to the moof.

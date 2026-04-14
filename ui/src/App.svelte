@@ -3,11 +3,11 @@
   import MainFeed from '$lib/components/MainFeed.svelte';
   import LyricsPane from '$lib/components/LyricsPane.svelte';
   import PlaybackBar from '$lib/components/PlaybackBar.svelte';
-  import { initPlaybackBridge } from '$lib/playbackStore';
+  import { playback } from '$lib/playback.svelte';
   import { onMount } from 'svelte';
 
   onMount(() => {
-    initPlaybackBridge();
+    playback.initBridge();
   });
 </script>
 
