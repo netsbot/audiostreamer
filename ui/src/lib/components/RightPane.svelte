@@ -272,7 +272,6 @@
 </script>
 
 <aside 
-  bind:this={scroller} 
   class="relative h-full w-88 shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 flex flex-col overflow-hidden"
 >
   <!-- Header / Tabs -->
@@ -299,7 +298,7 @@
     </div>
   </div>
 
-  <div class="flex-1 overflow-y-auto no-scrollbar p-10 pt-4">
+  <div bind:this={scroller} class="flex-1 overflow-y-auto no-scrollbar p-10 pt-4">
     {#if playback.rightPaneMode === 'lyrics'}
       <div class="space-y-7 pb-28">
         {#if isLoading}

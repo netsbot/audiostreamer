@@ -64,7 +64,11 @@
     });
   }
 
-  const shelfItemWidth = "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]";
+  const shelfItemWidth = $derived(
+    playback.lyricsPaneOpen
+      ? "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]"
+      : "shrink-0 w-44 lg:w-[calc((100%-7.5rem)/6)]"
+  );
 </script>
 
 <div

@@ -11,104 +11,11 @@
   import ArrowLeft from "lucide-svelte/icons/chevron-left";
   import AlbumView from "./AlbumView.svelte";
   import PlaylistView from "./PlaylistView.svelte";
-  import SearchHeader from "./SearchHeader.svelte";
   import SearchResults from "./SearchResults.svelte";
   import HomeFeed from "./HomeFeed.svelte";
   import LibraryView from "./LibraryView.svelte";
   import { navigation } from "$lib/navigation.svelte";
-
-  let searchQuery = $state("");
-
-  let searchResults = $state({
-    top: [] as any[],
-    songs: [] as any[],
-    albums: [] as any[],
-    artists: [] as any[],
-    playlists: [] as any[],
-    musicVideos: [] as any[],
-    stations: [] as any[],
-  });
-  let isSearching = $state(false);
-  let devToken = $state<string | null>(null);
-  let userToken = $state<string | null>(null);
-
-
-  async function handleSearch() {
-    if (!searchQuery.trim()) {
-      searchResults = {
-        top: [],
-        songs: [],
-        albums: [],
-        artists: [],
-        playlists: [],
-        musicVideos: [],
-        stations: [],
-      };
-      return;
-    }
-
-    isSearching = true;
-    try {
-      if (!devToken) {
-        devToken = await invoke("get_apple_music_token");
-      }
-      if (!userToken) {
-        userToken = await invoke("get_apple_music_user_token");
-      }
-
-      const response = await tauriFetch(
-        `https://api.music.apple.com/v1/catalog/us/search?term=${encodeURIComponent(searchQuery)}&types=songs,albums,artists,playlists,music-videos,stations&limit=25&with=topResults`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${devToken}`,
-            "media-user-token": userToken || "",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            Origin: "https://music.apple.com",
-            Referer: "https://music.apple.com/",
-            Accept: "*/*",
-            "Accept-Language": "en-GB",
-          },
-        },
-      );
-
-      console.log("response", response);
-
-      const data = await response.json();
-      const results = data.results || {};
-      console.log("Raw API Results:", results);
-
-      searchResults = {
-        top: results.topResults?.data || results.top?.data || [],
-        songs: results.songs?.data || [],
-        albums: results.albums?.data || [],
-        artists: results.artists?.data || [],
-        playlists: results.playlists?.data || [],
-        musicVideos: results["music-videos"]?.data || [],
-        stations: results.stations?.data || [],
-      };
-      navigation.activeView = "search";
-    } catch (error) {
-      console.error("Search failed:", error);
-    } finally {
-      isSearching = false;
-    }
-  }
-
-  function clearSearch() {
-    searchQuery = "";
-    navigation.activeView = "home";
-    searchResults = {
-      top: [],
-      songs: [],
-      albums: [],
-      artists: [],
-      playlists: [],
-      musicVideos: [],
-      stations: [],
-    };
-  }
+  import { search } from "$lib/search.svelte";
 
   function getArtworkUrl(artwork: any, size = 1200) {
     if (!artwork || !artwork.url) return "";
@@ -132,18 +39,12 @@
 <main
   class="min-w-0 flex-1 overflow-y-auto no-scrollbar p-12 bg-zinc-950 pb-32"
 >
-  <SearchHeader 
-    bind:searchQuery={searchQuery} 
-    isSearching={isSearching} 
-    handleSearch={handleSearch} 
-  />
-
   {#if navigation.activeView === "search"}
     <SearchResults 
-      searchResults={searchResults} 
+      searchResults={search.results} 
       openAlbum={openAlbum} 
       openPlaylist={openPlaylist}
-      clearSearch={clearSearch} 
+      clearSearch={() => search.clearSearch()} 
       getArtworkUrl={getArtworkUrl}
     />
   {/if}

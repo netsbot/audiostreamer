@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Cef, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
+use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 
 use crate::sinks::playback::PlaybackControls;
 
@@ -58,13 +59,15 @@ impl PlaybackRuntime {
 struct AppState {
     app_handle: AppHandle<Cef>,
     runtime: Arc<Mutex<PlaybackRuntime>>,
+    controls: Arc<Mutex<MediaControls>>,
 }
 
 impl AppState {
-    fn new(app_handle: AppHandle<Cef>) -> Self {
+    fn new(app_handle: AppHandle<Cef>, controls: MediaControls) -> Self {
         Self {
             app_handle,
             runtime: Arc::new(Mutex::new(PlaybackRuntime::new())),
+            controls: Arc::new(Mutex::new(controls)),
         }
     }
 }
@@ -114,6 +117,18 @@ async fn start_playback(
             runtime.playback_generation,
         )
     };
+
+    // Update MPRIS
+    let state = app_handle.state::<AppState>();
+    let mut controls = state.controls.lock().await;
+    let _ = controls.set_metadata(MediaMetadata {
+        title: Some(&metadata.title),
+        artist: Some(&metadata.artist),
+        album: Some(&metadata.album),
+        cover_url: metadata.artwork_url.as_deref(),
+        duration: metadata.duration_ms.map(|d| Duration::from_millis(d)),
+    });
+    let _ = controls.set_playback(MediaPlayback::Playing { progress: None });
 
     let runtime_for_task = runtime.clone();
     let adam_id_for_task = adam_id.clone();
@@ -267,12 +282,14 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
             control.pause().map_err(|error| error.to_string())?;
         }
         paused.store(true, Ordering::SeqCst);
+        let _ = state.controls.lock().await.set_playback(MediaPlayback::Paused { progress: None });
         Ok(false)
     } else {
         if let Some(control) = control {
             control.resume().map_err(|error| error.to_string())?;
         }
         paused.store(false, Ordering::SeqCst);
+        let _ = state.controls.lock().await.set_playback(MediaPlayback::Playing { progress: None });
         Ok(true)
     }
 }
@@ -314,7 +331,35 @@ async fn seek(state: State<'_, AppState>, seconds: f64) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            app.manage(AppState::new(app.handle().clone()));
+            #[cfg(target_os = "linux")]
+            let config = PlatformConfig {
+                dbus_name: "com.netsbit.audiostreamer",
+                display_name: "AudioStreamer",
+                hwnd: None,
+            };
+
+            #[cfg(not(target_os = "linux"))]
+            let config = PlatformConfig {
+                dbus_name: "com.netsbit.audiostreamer",
+                display_name: "AudioStreamer",
+                hwnd: None, // Simplified for now
+            };
+
+            let mut controls = MediaControls::new(config).map_err(|e| e.to_string())?;
+            let handle = app.handle().clone();
+            controls.attach(move |event| {
+                let _ = match event {
+                    MediaControlEvent::Play | MediaControlEvent::Pause | MediaControlEvent::Toggle => {
+                        handle.emit("mpris-event", "toggle")
+                    }
+                    MediaControlEvent::Next => handle.emit("mpris-event", "next"),
+                    MediaControlEvent::Previous => handle.emit("mpris-event", "previous"),
+                    MediaControlEvent::Stop => handle.emit("mpris-event", "stop"),
+                    _ => Ok(()),
+                };
+            }).map_err(|e| e.to_string())?;
+
+            app.manage(AppState::new(app.handle().clone(), controls));
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(

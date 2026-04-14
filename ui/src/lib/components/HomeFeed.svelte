@@ -636,11 +636,6 @@
       </button>
     </div>
   {:else}
-    <!-- Greeting -->
-    <div class="mb-10" in:fly={{ y: 20, duration: 400 }}>
-      <h1 class="text-4xl font-black tracking-tighter text-white">Listen Now</h1>
-      <p class="text-zinc-500 text-sm mt-1 font-medium">Curated for you</p>
-    </div>
 
     <!-- Render each recommendation shelf -->
     {#each recommendations as rec, shelfIndex}

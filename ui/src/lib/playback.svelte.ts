@@ -143,40 +143,50 @@ class PlaybackState {
     async initBridge() {
         console.log("Initializing playback bridge (Svelte 5 Smooth)...");
 
-        await listen('playback-toggle', async () => {
-            try {
-                this.isPlaying = await invoke<boolean>('toggle_playback');
-                if (this.isPlaying) {
-                    this.lastSyncRealTime = performance.now();
-                    this.lastSyncPlaybackTime = this.currentTime;
+        await Promise.all([
+            listen('playback-toggle', async () => {
+                try {
+                    this.isPlaying = await invoke<boolean>('toggle_playback');
+                    if (this.isPlaying) {
+                        this.lastSyncRealTime = performance.now();
+                        this.lastSyncPlaybackTime = this.currentTime;
+                    }
+                } catch (e) {
+                    console.error("Failed to toggle playback via bridge:", e);
                 }
-            } catch (e) {
-                console.error("Failed to toggle playback via bridge:", e);
-            }
-        });
+            }),
 
-        await listen('playback-progress', (event: any) => {
-            const payload = event.payload as {
-                currentTime?: number;
-                current_time?: number;
-                totalTime?: number;
-                total_time?: number;
-                paused?: boolean;
-                ended?: boolean;
-            };
-            const current = payload.currentTime ?? payload.current_time ?? 0;
-            const total = payload.totalTime ?? payload.total_time ?? 0;
-            const paused = payload.paused ?? false;
-            const ended = payload.ended ?? false;
+            listen('playback-progress', (event: any) => {
+                const payload = event.payload as {
+                    currentTime?: number;
+                    current_time?: number;
+                    totalTime?: number;
+                    total_time?: number;
+                    paused?: boolean;
+                    ended?: boolean;
+                };
+                const current = payload.currentTime ?? payload.current_time ?? 0;
+                const total = payload.totalTime ?? payload.total_time ?? 0;
+                const paused = payload.paused ?? false;
+                const ended = payload.ended ?? false;
 
-            this.syncTime(current);
-            if (total > 0) this.totalTime = total;
-            this.isPlaying = !paused;
+                this.syncTime(current);
+                if (total > 0) this.totalTime = total;
+                this.isPlaying = !paused;
 
-            if (ended) {
-                void this.playNextInQueue();
-            }
-        });
+                if (ended) {
+                    void this.playNextInQueue();
+                }
+            }),
+
+            listen('mpris-event', async (event: any) => {
+                const type = event.payload as string;
+                console.log("MPRIS event:", type);
+                if (type === 'toggle') await this.togglePlayback();
+                else if (type === 'next') await this.playNext();
+                else if (type === 'previous') await this.playPrevious();
+            })
+        ]);
     }
 
     async playSong(id: string, metadata: TrackMetadata, options: PlaySongOptions = {}) {

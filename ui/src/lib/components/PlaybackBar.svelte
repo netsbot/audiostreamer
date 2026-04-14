@@ -142,14 +142,7 @@
 
   <!-- Volume & Tools -->
   <div class="flex items-center justify-end gap-4 w-1/4">
-    <div class="flex items-center gap-2 mr-2">
-      <Volume2 class="text-zinc-400 size-4" />
-      <div class="w-20">
-        <div class="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-          <div class="h-full bg-zinc-400" style="width: 75%"></div>
-        </div>
-      </div>
-    </div>
+    
     
     <div class="flex items-center bg-zinc-900/50 rounded-lg p-1 border border-white/5">
       <button

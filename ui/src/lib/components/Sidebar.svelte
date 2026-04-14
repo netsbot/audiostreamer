@@ -10,13 +10,14 @@
   import { onMount } from 'svelte';
   import { library } from '$lib/library.svelte';
   import { navigation } from '$lib/navigation.svelte';
+  import { search } from '$lib/search.svelte';
+  import Search from 'lucide-svelte/icons/search';
 
   const navItems = [
     { icon: Home, label: 'Home', view: 'home' },
     { icon: Compass, label: 'Browse', view: 'browse' },
     { icon: Radio, label: 'Radio', view: 'radio' },
     { icon: LibraryIcon, label: 'Library', view: 'library' },
-    { icon: PersonStanding, label: 'Made For You', view: 'home' },
   ];
 
   onMount(() => {
@@ -33,6 +34,25 @@
 </script>
 
 <aside class="relative h-full w-56 shrink-0 border-r border-white/5 bg-zinc-900/50 flex flex-col py-8 px-5 gap-y-4">
+  <!-- Search Bar -->
+  <div class="relative mb-2 px-1">
+    <Search
+      class="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-zinc-500"
+    />
+    <input
+      type="text"
+      bind:value={search.query}
+      onkeydown={(e) => e.key === "Enter" && search.handleSearch()}
+      placeholder="Search..."
+      class="w-full bg-zinc-950/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
+    />
+    {#if search.isSearching}
+      <div class="absolute right-3 top-1/2 -translate-y-1/2">
+        <div class="size-2.5 border-2 border-red-500/50 border-t-red-500 rounded-full animate-spin"></div>
+      </div>
+    {/if}
+  </div>
+
   <nav class="flex flex-col gap-y-1">
     {#each navItems as item}
       <button
