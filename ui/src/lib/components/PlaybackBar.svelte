@@ -10,6 +10,8 @@
   import MicVocal from 'lucide-svelte/icons/mic-vocal';
   import User from 'lucide-svelte/icons/user';
   import Pause from 'lucide-svelte/icons/pause';
+  import Repeat1 from 'lucide-svelte/icons/repeat-1';
+  import ListMusic from 'lucide-svelte/icons/list-music';
   
   import { playback } from '$lib/playback.svelte';
 
@@ -70,15 +72,19 @@
       <button 
         class="transition-colors {playback.isShuffled ? 'text-red-500' : 'text-zinc-400 hover:text-white'}"
         onclick={() => playback.toggleShuffle()}
+        title="Shuffle"
       >
         <Shuffle class="size-4" />
       </button>
+
       <button 
         class="text-zinc-200 hover:text-white transition-colors"
         onclick={() => playback.playPrevious()}
+        title="Previous Track"
       >
-        <SkipBack class="size-5" />
+        <SkipBack class="size-5 fill-current" />
       </button>
+
       <button 
         class="w-10 h-10 flex items-center justify-center bg-white text-zinc-950 rounded-full hover:scale-105 transition-transform"
         onclick={() => playback.togglePlayback()}
@@ -89,13 +95,26 @@
           <Play class="size-5 fill-current" />
         {/if}
       </button>
+
       <button 
         class="text-zinc-200 hover:text-white transition-colors"
         onclick={() => playback.playNext()}
+        title="Next Track"
       >
-        <SkipForward class="size-5" />
+        <SkipForward class="size-5 fill-current" />
       </button>
-      <button class="text-zinc-400 hover:text-white transition-colors"><Repeat class="size-4" /></button>
+
+      <button 
+        class="transition-colors {playback.repeatMode > 0 ? 'text-red-500' : 'text-zinc-400 hover:text-white'}"
+        onclick={() => playback.toggleRepeat()}
+        title={['Repeat Off', 'Repeat All', 'Repeat One'][playback.repeatMode]}
+      >
+        {#if playback.repeatMode === 2}
+          <Repeat1 class="size-4" />
+        {:else}
+          <Repeat class="size-4" />
+        {/if}
+      </button>
     </div>
     <div class="flex items-center gap-3 w-full">
       <span class="text-[10px] text-zinc-500 font-medium font-mono w-10">{formatTime(playback.currentTime)}</span>
@@ -131,15 +150,41 @@
         </div>
       </div>
     </div>
-    <button
-      class="p-2 rounded-md transition-colors outline-none focus:outline-none focus:ring-0 {playback.lyricsPaneOpen ? 'text-red-500' : 'text-zinc-400 hover:text-white'}"
-      onclick={() => playback.toggleLyricsPane()}
-      aria-label="Toggle lyrics panel"
-      aria-pressed={playback.lyricsPaneOpen}
-      title="Toggle lyrics panel"
-    >
-      <MicVocal class="size-4" />
-    </button>
-    <button class="text-zinc-400 hover:text-white transition-colors"><User class="size-4" /></button>
+    
+    <div class="flex items-center bg-zinc-900/50 rounded-lg p-1 border border-white/5">
+      <button
+        class="p-1.5 rounded-md transition-all outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'lyrics' ? 'text-red-500 bg-white/5 shadow-sm' : 'text-zinc-500 hover:text-white'}"
+        onclick={() => {
+          if (playback.lyricsPaneOpen && playback.rightPaneMode === 'lyrics') {
+            playback.lyricsPaneOpen = false;
+          } else {
+            playback.lyricsPaneOpen = true;
+            playback.rightPaneMode = 'lyrics';
+          }
+        }}
+        aria-label="Toggle lyrics"
+        title="Lyrics"
+      >
+        <MicVocal class="size-4" />
+      </button>
+
+      <button
+        class="p-1.5 rounded-md transition-all outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'queue' ? 'text-red-500 bg-white/5 shadow-sm' : 'text-zinc-500 hover:text-white'}"
+        onclick={() => {
+          if (playback.lyricsPaneOpen && playback.rightPaneMode === 'queue') {
+            playback.lyricsPaneOpen = false;
+          } else {
+            playback.lyricsPaneOpen = true;
+            playback.rightPaneMode = 'queue';
+          }
+        }}
+        aria-label="Toggle queue"
+        title="Playing Next"
+      >
+        <ListMusic class="size-4" />
+      </button>
+    </div>
+
+    <button class="text-zinc-500 hover:text-white transition-colors ml-2"><User class="size-4" /></button>
   </div>
 </footer>

@@ -25,6 +25,7 @@ interface PlaySongOptions {
     queue?: QueueTrack[];
     startIndex?: number;
     fromAutoNext?: boolean;
+    isStation?: boolean;
 }
 
 class PlaybackState {
@@ -35,16 +36,20 @@ class PlaybackState {
     totalTime = $state(0);
     lyricsPaneOpen = $state(true);
     isShuffled = $state(false);
-    
+    repeatMode = $state(0); // 0: Off, 1: All, 2: One
+    rightPaneMode = $state<'lyrics' | 'queue'>('lyrics');
+    activeStationId = $state<string | null>(null);
+
+    activeQueue = $state<QueueTrack[]>([]);
+    originalQueue = $state<QueueTrack[]>([]);
+    activeQueueIndex = $state(-1);
+
     // -- High-precision interpolation --
     smoothTime = $state(0);
     private lastSyncRealTime = 0;
     private lastSyncPlaybackTime = 0;
     private rafId: number | null = null;
 
-    private activeQueue: QueueTrack[] = [];
-    private originalQueue: QueueTrack[] = [];
-    private activeQueueIndex = -1;
     private autoAdvanceInFlight = false;
 
     constructor() {
@@ -90,10 +95,27 @@ class PlaybackState {
     }
 
     async playNext() {
+        if (this.repeatMode === 2) {
+            await this.seekTo(0);
+            return;
+        }
+
         const nextIndex = this.activeQueueIndex + 1;
         if (nextIndex < 0 || nextIndex >= this.activeQueue.length) {
-            this.isPlaying = false;
+            if (this.repeatMode === 1 && this.activeQueue.length > 0) {
+                // Repeat All: Back to first song
+                this.activeQueueIndex = 0;
+                const next = this.activeQueue[0];
+                await this.playSong(next.id, next.metadata, { fromAutoNext: true });
+            } else {
+                this.isPlaying = false;
+            }
             return;
+        }
+
+        // Station Refill Check
+        if (this.activeStationId && (this.activeQueue.length - nextIndex) < 3) {
+            void this.refillStationQueue();
         }
 
         this.autoAdvanceInFlight = true;
@@ -159,6 +181,11 @@ class PlaybackState {
 
     async playSong(id: string, metadata: TrackMetadata, options: PlaySongOptions = {}) {
         try {
+            // Reset station mode if we are not playing from a station
+            if (!options.isStation && !options.fromAutoNext) {
+                this.activeStationId = null;
+            }
+
             if (options.queue && options.queue.length > 0) {
                 this.originalQueue = options.queue;
                 if (this.isShuffled) {
@@ -202,6 +229,22 @@ class PlaybackState {
         } catch (e) {
             console.error("Failed to play song:", e);
             this.isPlaying = false;
+        }
+    }
+
+    private async refillStationQueue() {
+        if (!this.activeStationId) return;
+        try {
+            console.log(`Refilling station queue for ${this.activeStationId}...`);
+            const tracks = await this.fetchStationTracks(this.activeStationId, 1);
+            if (tracks.length > 0) {
+                // Check if track already in queue to avoid duplicates
+                if (!this.activeQueue.some(t => t.id === tracks[0].id)) {
+                    this.activeQueue = [...this.activeQueue, ...tracks];
+                }
+            }
+        } catch (e) {
+            console.error('Failed to refill station queue:', e);
         }
     }
 
@@ -255,6 +298,43 @@ class PlaybackState {
         }
     }
 
+    toggleRepeat() {
+        this.repeatMode = (this.repeatMode + 1) % 3;
+    }
+
+    toggleRightPaneMode() {
+        this.rightPaneMode = this.rightPaneMode === 'lyrics' ? 'queue' : 'lyrics';
+    }
+
+    async removeFromQueue(index: number) {
+        if (index < 0 || index >= this.activeQueue.length) return;
+
+        // If removing the currently playing track, play next
+        if (index === this.activeQueueIndex) {
+            await this.playNext();
+        }
+
+        const removedItem = this.activeQueue.splice(index, 1)[0];
+
+        // Adjust index if we removed something before current track
+        if (index < this.activeQueueIndex) {
+            this.activeQueueIndex--;
+        }
+
+        // Also remove from original queue if it exists there
+        const origIdx = this.originalQueue.findIndex(t => t.id === removedItem.id);
+        if (origIdx >= 0) {
+            this.originalQueue.splice(origIdx, 1);
+        }
+    }
+
+    async jumpToQueueIndex(index: number) {
+        if (index < 0 || index >= this.activeQueue.length) return;
+        const track = this.activeQueue[index];
+        this.activeQueueIndex = index;
+        await this.playSong(track.id, track.metadata, { fromAutoNext: true });
+    }
+
     private shuffleArray<T>(array: T[]): T[] {
         const shuffled = [...array];
         for (let i = shuffled.length - 1; i > 0; i--) {
@@ -266,39 +346,64 @@ class PlaybackState {
 
     async playStation(id: string, metadata: StationMetadata) {
         try {
-            const firstTrack = await this.fetchStationFirstTrack(id);
-            if (!firstTrack?.id) throw new Error(`No tracks for station ${id}`);
+            this.activeStationId = id;
+            const tracks = await this.fetchStationTracks(id, 1);
+            if (tracks.length === 0) throw new Error(`No tracks for station ${id}`);
 
-            await this.playSong(firstTrack.id, {
-                title: firstTrack.attributes?.name || metadata.name,
-                artist: firstTrack.attributes?.artistName || metadata.subtitle || 'Station',
-                album: firstTrack.attributes?.albumName || 'Apple Music Radio',
-                artwork_url: this.formatArtworkUrl(firstTrack.attributes?.artwork, 600) || metadata.artwork_url,
-                duration_ms: firstTrack.attributes?.durationInMillis,
+            const firstTrack = tracks[0];
+            await this.playSong(firstTrack.id, firstTrack.metadata, {
+                queue: tracks,
+                startIndex: 0,
+                isStation: true
             });
+
+            // Pre-fetch one more for the queue
+            void this.refillStationQueue();
         } catch (e) {
             console.error('Failed to play station:', e);
             this.isPlaying = false;
         }
     }
 
+    private async fetchStationTracks(stationId: string, limit = 1): Promise<QueueTrack[]> {
+        const devToken = await invoke<string>('get_apple_music_token');
+        const userToken = await invoke<string>('get_apple_music_user_token');
+        const headers = {
+            Authorization: `Bearer ${devToken}`,
+            'media-user-token': userToken,
+            Origin: 'https://music.apple.com',
+            Referer: 'https://music.apple.com/',
+            'Content-Type': 'application/json'
+        };
+
+        try {
+            const response = await tauriFetch(`https://api.music.apple.com/v1/me/stations/next-tracks/${stationId}?limit=${limit}`, {
+                method: 'POST',
+                headers
+            });
+            if (response.ok) {
+                const payload: any = await response.json();
+                const data = payload?.data || [];
+                return data.map((item: any) => ({
+                    id: item.id,
+                    metadata: {
+                        title: item.attributes?.name || 'Unknown',
+                        artist: item.attributes?.artistName || 'Unknown',
+                        album: item.attributes?.albumName || 'Unknown',
+                        artwork_url: this.formatArtworkUrl(item.attributes?.artwork, 600),
+                        duration_ms: item.attributes?.durationInMillis,
+                    }
+                }));
+            }
+        } catch (e) {
+            console.warn('Failed to fetch station tracks:', e);
+        }
+        return [];
+    }
+
     private formatArtworkUrl(artwork: any, size = 600): string | undefined {
         if (!artwork?.url) return undefined;
         return artwork.url.replace('{w}', `${size}`).replace('{h}', `${size}`).replace('{f}', 'webp').replace('{c}', '');
-    }
-
-    private async fetchStationFirstTrack(stationId: string): Promise<any> {
-        const devToken = await invoke<string>('get_apple_music_token');
-        const userToken = await invoke<string>('get_apple_music_user_token');
-        const headers = { Authorization: `Bearer ${devToken}`, 'media-user-token': userToken, Origin: 'https://music.apple.com', Referer: 'https://music.apple.com/', 'Content-Type': 'application/json' };
-        try {
-            const response = await tauriFetch(`https://api.music.apple.com/v1/me/stations/next-tracks/${stationId}?limit=1`, { method: 'POST', headers });
-            if (response.ok) {
-                const payload: any = await response.json();
-                return payload?.data?.[0];
-            }
-        } catch (e) { console.warn('Failed to fetch station next-track:', e); }
-        return null;
     }
 }
 

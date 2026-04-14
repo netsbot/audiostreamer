@@ -1,6 +1,10 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Maximize2 from 'lucide-svelte/icons/maximize-2';
+  import ListMusic from 'lucide-svelte/icons/list-music';
+  import MicVocal from 'lucide-svelte/icons/mic-vocal';
+  import X from 'lucide-svelte/icons/x';
+  import Play from 'lucide-svelte/icons/play';
   import { playback } from '$lib/playback.svelte';
 
   type Syllable = {
@@ -269,100 +273,164 @@
 
 <aside 
   bind:this={scroller} 
-  class="relative h-full w-88 shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 p-10 overflow-y-auto no-scrollbar"
+  class="relative h-full w-88 shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 flex flex-col overflow-hidden"
 >
-  <div class="flex items-center justify-between mb-10">
-    <h2 class="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Lyrics</h2>
-    <button class="text-zinc-500 hover:text-white">
-      <Maximize2 class="size-4" />
-    </button>
+  <!-- Header / Tabs -->
+  <div class="flex flex-col gap-6 p-10 pb-4 shrink-0">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <button 
+          class="text-xs font-black uppercase tracking-[0.2em] transition-colors {playback.rightPaneMode === 'lyrics' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}"
+          onclick={() => playback.rightPaneMode = 'lyrics'}
+        >
+          Lyrics
+        </button>
+        <div class="w-1 h-1 rounded-full bg-zinc-800"></div>
+        <button 
+          class="text-xs font-black uppercase tracking-[0.2em] transition-colors {playback.rightPaneMode === 'queue' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}"
+          onclick={() => playback.rightPaneMode = 'queue'}
+        >
+          Playing Next
+        </button>
+      </div>
+      <button class="text-zinc-500 hover:text-white">
+        <Maximize2 class="size-4" />
+      </button>
+    </div>
   </div>
 
-  <div class="space-y-7 pb-28">
-    {#if isLoading}
-      <p class="text-zinc-500 text-sm">Loading lyrics...</p>
-    {:else if lines.length === 0}
-      <p class="text-zinc-500 text-sm">No lyrics loaded{error ? ` (${error})` : ''}</p>
-    {:else}
-      {#each lines as line, lineIndex}
-        {@const lineDisplayEnd = getLineDisplayEnd(lineIndex)}
-        {@const lineActive = playback.smoothTime >= line.start && playback.smoothTime < lineDisplayEnd}
-        <div class="display-synced-line mb-10 transition-all duration-700" style="filter: blur({lineActive ? '0px' : '2px'});">
-          <button 
-            class="line w-full text-left border-none bg-transparent p-0 cursor-pointer transition-all duration-500 whitespace-normal {lineActive ? 'opacity-100' : 'opacity-20 hover:opacity-40'}"
-            onclick={() => playback.seekTo(line.start)}
-          >
-            <div 
-              use:registerLine={lineIndex}
-              class="lyrics-container flex flex-col items-start gap-2"
-            >
-              <!-- Primary Vocals -->
-              <div class="primary-vocals block text-[2rem] font-semibold tracking-tight leading-[1.2] whitespace-normal">
-                {#each line.words as word}
-                  {#if word.syllables.some(s => !s.isBackground)}
-                    <span class="group inline-flex whitespace-nowrap overflow-visible align-baseline" class:mr-[0.22em]={word.hasTrailingSpace}>
-                      {#each word.syllables.filter(s => !s.isBackground) as syllable}
-                        {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
-                        {@const delay = Math.round((syllable.start - line.start) * 1000)}
-                        {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
-                        {@const progress = line.fullLineHighlight
-                          ? (lineActive ? 100 : 0)
-                          : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
-                        {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
-                        
-                        <div class="main relative inline-grid place-items-center overflow-visible">
-                          <span 
-                            class="syllable relative inline-grid place-items-center text-white/20 whitespace-pre transition-transform duration-500 px-3 py-1.5 -mx-3 -my-1.5 overflow-visible"
-                            class:translate-y-[-3px]={isActive}
-                            class:is-glowing={isActive}
-                            data-content={syllable.text}
-                            data-duration={duration}
-                            data-delay={delay}
-                            style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
-                          >
-                            <span class="grid-area-[1/1]">{syllable.text}</span>
-                          </span>
-                        </div>
+  <div class="flex-1 overflow-y-auto no-scrollbar p-10 pt-4">
+    {#if playback.rightPaneMode === 'lyrics'}
+      <div class="space-y-7 pb-28">
+        {#if isLoading}
+          <p class="text-zinc-500 text-sm">Loading lyrics...</p>
+        {:else if lines.length === 0}
+          <p class="text-zinc-500 text-sm">No lyrics loaded{error ? ` (${error})` : ''}</p>
+        {:else}
+          {#each lines as line, lineIndex}
+            {@const lineDisplayEnd = getLineDisplayEnd(lineIndex)}
+            {@const lineActive = playback.smoothTime >= line.start && playback.smoothTime < lineDisplayEnd}
+            <div class="display-synced-line mb-10 transition-all duration-700" style="filter: blur({lineActive ? '0px' : '2px'});">
+              <button 
+                class="line w-full text-left border-none bg-transparent p-0 cursor-pointer transition-all duration-500 whitespace-normal {lineActive ? 'opacity-100' : 'opacity-20 hover:opacity-40'}"
+                onclick={() => playback.seekTo(line.start)}
+              >
+                <div 
+                  use:registerLine={lineIndex}
+                  class="lyrics-container flex flex-col items-start gap-2"
+                >
+                  <!-- Primary Vocals -->
+                  <div class="primary-vocals block text-[2rem] font-semibold tracking-tight leading-[1.2] whitespace-normal">
+                    {#each line.words as word}
+                      {#if word.syllables.some(s => !s.isBackground)}
+                        <span class="group inline-flex whitespace-nowrap overflow-visible align-baseline" class:mr-[0.22em]={word.hasTrailingSpace}>
+                          {#each word.syllables.filter(s => !s.isBackground) as syllable}
+                            {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
+                            {@const delay = Math.round((syllable.start - line.start) * 1000)}
+                            {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
+                            {@const progress = line.fullLineHighlight
+                              ? (lineActive ? 100 : 0)
+                              : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
+                            {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
+                            
+                            <div class="main relative inline-grid place-items-center overflow-visible">
+                              <span 
+                                class="syllable relative inline-grid place-items-center text-white/20 whitespace-pre transition-transform duration-500 px-3 py-1.5 -mx-3 -my-1.5 overflow-visible"
+                                class:translate-y-[-3px]={isActive}
+                                class:is-glowing={isActive}
+                                data-content={syllable.text}
+                                data-duration={duration}
+                                data-delay={delay}
+                                style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
+                              >
+                                <span class="grid-area-[1/1]">{syllable.text}</span>
+                              </span>
+                            </div>
+                          {/each}
+                        </span>
+                      {/if}
+                    {/each}
+                  </div>
+
+                  <!-- Background Vocals -->
+                  {#if line.words.some(w => w.syllables.some(s => s.isBackground))}
+                    <div class="background-vocals flex flex-wrap items-center opacity-60 text-[1.4rem] font-medium text-zinc-400 mt-1 tracking-tight">
+                      {#each line.words as word}
+                        {#if word.syllables.some(s => s.isBackground)}
+                           <span class="inline-flex" class:mr-[0.15em]={word.hasTrailingSpace}>
+                            {#each word.syllables.filter(s => s.isBackground) as syllable}
+                              {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
+                              {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
+                              {@const progress = line.fullLineHighlight
+                                ? (lineActive ? 100 : 0)
+                                : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
+                              {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
+
+                              <span 
+                                class="syllable relative inline-grid place-items-center text-zinc-600 whitespace-pre transition-all duration-500 overflow-visible"
+                                class:is-glowing={isActive}
+                                class:text-white={isActive}
+                                data-content={syllable.text}
+                                style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
+                              >
+                                <span class="grid-area-[1/1]">{syllable.text}</span>
+                              </span>
+                            {/each}
+
+                           </span>
+                        {/if}
                       {/each}
-                    </span>
+                    </div>
                   {/if}
-                {/each}
+                </div>
+              </button>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    {:else}
+      <div class="space-y-4 pb-28">
+        <h3 class="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-4">Upcoming</h3>
+        {#if playback.activeQueue.length === 0}
+          <p class="text-zinc-500 text-sm">Queue is empty</p>
+        {:else}
+          {#each playback.activeQueue as track, i}
+            {@const isCurrent = i === playback.activeQueueIndex}
+            <div 
+              class="group relative flex items-center gap-4 p-2 -mx-2 rounded-xl transition-all {isCurrent ? 'bg-white/10' : 'hover:bg-white/5'}"
+            >
+              <div class="relative size-12 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-md">
+                {#if track.metadata.artwork_url}
+                  <img src={track.metadata.artwork_url} alt={track.metadata.title} class="size-full object-cover {isCurrent ? 'opacity-40' : ''}" />
+                {/if}
+                <button 
+                  class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onclick={() => playback.jumpToQueueIndex(i)}
+                >
+                  <Play class="size-5 text-white fill-current" />
+                </button>
+              </div>
+              
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold truncate {isCurrent ? 'text-red-500' : 'text-white'}">
+                  {track.metadata.title}
+                </p>
+                <p class="text-xs text-zinc-400 truncate">
+                  {track.metadata.artist}
+                </p>
               </div>
 
-              <!-- Background Vocals -->
-              {#if line.words.some(w => w.syllables.some(s => s.isBackground))}
-                <div class="background-vocals flex flex-wrap items-center opacity-60 text-[1.4rem] font-medium text-zinc-400 mt-1 tracking-tight">
-                  {#each line.words as word}
-                    {#if word.syllables.some(s => s.isBackground)}
-                       <span class="inline-flex" class:mr-[0.15em]={word.hasTrailingSpace}>
-                        {#each word.syllables.filter(s => s.isBackground) as syllable}
-                          {@const duration = Math.round((syllable.end - syllable.start) * 1000)}
-                          {@const safeDuration = Math.max(0.001, syllable.end - syllable.start)}
-                          {@const progress = line.fullLineHighlight
-                            ? (lineActive ? 100 : 0)
-                            : Math.max(0, Math.min(100, ((playback.smoothTime - syllable.start) / safeDuration) * 100))}
-                          {@const isActive = line.fullLineHighlight ? lineActive : progress > 0 && progress < 100}
-
-                          <span 
-                            class="syllable relative inline-grid place-items-center text-zinc-600 whitespace-pre transition-all duration-500 overflow-visible"
-                            class:is-glowing={isActive}
-                            class:text-white={isActive}
-                            data-content={syllable.text}
-                            style="--gradient-progress: {progress}%; --mask: {progress >= 100 ? 'none' : `linear-gradient(to right, #000 0%, #000 var(--gradient-progress), transparent calc(var(--gradient-progress) + 40%))`}; --overlay-opacity: {progress > 0 ? 1 : 0};"
-                          >
-                            <span class="grid-area-[1/1]">{syllable.text}</span>
-                          </span>
-                        {/each}
-
-                       </span>
-                    {/if}
-                  {/each}
-                </div>
-              {/if}
+              <button 
+                class="size-8 flex items-center justify-center text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                onclick={() => playback.removeFromQueue(i)}
+                title="Remove from queue"
+              >
+                <X class="size-4" />
+              </button>
             </div>
-          </button>
-        </div>
-      {/each}
+          {/each}
+        {/if}
+      </div>
     {/if}
   </div>
 </aside>

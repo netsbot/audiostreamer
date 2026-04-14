@@ -1,7 +1,7 @@
 <script lang="ts">
   import Sidebar from '$lib/components/Sidebar.svelte';
   import MainFeed from '$lib/components/MainFeed.svelte';
-  import LyricsPane from '$lib/components/LyricsPane.svelte';
+  import RightPane from '$lib/components/RightPane.svelte';
   import PlaybackBar from '$lib/components/PlaybackBar.svelte';
   import { playback } from '$lib/playback.svelte';
   import { onMount } from 'svelte';
@@ -31,14 +31,14 @@
     <Sidebar />
     <MainFeed />
     {#if playback.lyricsPaneOpen && !isMobileLayout}
-      <LyricsPane />
+      <RightPane />
     {/if}
   </main>
 
   {#if playback.lyricsPaneOpen && isMobileLayout}
     <div class="fixed inset-0 z-40 bg-black/40" onclick={() => playback.lyricsPaneOpen = false} aria-hidden="true"></div>
     <div class="fixed top-0 right-0 bottom-20 z-50 w-full max-w-88">
-      <LyricsPane />
+      <RightPane />
     </div>
   {/if}
 
