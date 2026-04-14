@@ -14,12 +14,10 @@
   import SearchHeader from "./SearchHeader.svelte";
   import SearchResults from "./SearchResults.svelte";
   import HomeFeed from "./HomeFeed.svelte";
+  import LibraryView from "./LibraryView.svelte";
+  import { navigation } from "$lib/navigation.svelte";
 
   let searchQuery = $state("");
-  let activeView = $state("home"); // 'home', 'search', 'album', 'playlist'
-  let selectedAlbumId = $state("");
-  let selectedPlaylistId = $state("");
-  let selectedPlaylistType = $state("playlists");
 
   let searchResults = $state({
     top: [] as any[],
@@ -90,7 +88,7 @@
         musicVideos: results["music-videos"]?.data || [],
         stations: results.stations?.data || [],
       };
-      activeView = "search";
+      navigation.activeView = "search";
     } catch (error) {
       console.error("Search failed:", error);
     } finally {
@@ -100,7 +98,7 @@
 
   function clearSearch() {
     searchQuery = "";
-    activeView = "home";
+    navigation.activeView = "home";
     searchResults = {
       top: [],
       songs: [],
@@ -123,14 +121,11 @@
   }
 
   function openAlbum(id: string) {
-    selectedAlbumId = id;
-    activeView = "album";
+    navigation.openAlbum(id);
   }
 
   function openPlaylist(id: string, type = "playlists") {
-    selectedPlaylistId = id;
-    selectedPlaylistType = type;
-    activeView = "playlist";
+    navigation.openPlaylist(id, type);
   }
 </script>
 
@@ -143,7 +138,7 @@
     handleSearch={handleSearch} 
   />
 
-  {#if activeView === "search"}
+  {#if navigation.activeView === "search"}
     <SearchResults 
       searchResults={searchResults} 
       openAlbum={openAlbum} 
@@ -153,31 +148,35 @@
     />
   {/if}
 
-  {#if activeView === "album"}
+  {#if navigation.activeView === "album"}
     <div in:fade={{ duration: 300 }}>
       <button 
         class="mb-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm"
-        onclick={() => activeView = (searchQuery ? 'search' : 'home')}
+        onclick={() => navigation.activeView = (searchQuery ? 'search' : 'home')}
       >
         <ArrowLeft class="size-4" /> Back
       </button>
-      <AlbumView albumId={selectedAlbumId} />
+      <AlbumView albumId={navigation.selectedAlbumId} />
     </div>
   {/if}
 
-  {#if activeView === "playlist"}
+  {#if navigation.activeView === "playlist"}
     <div in:fade={{ duration: 300 }}>
       <button
         class="mb-8 flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm"
-        onclick={() => activeView = (searchQuery ? 'search' : 'home')}
+        onclick={() => navigation.activeView = (searchQuery ? 'search' : 'home')}
       >
         <ArrowLeft class="size-4" /> Back
       </button>
-      <PlaylistView playlistId={selectedPlaylistId} playlistType={selectedPlaylistType} />
+      <PlaylistView playlistId={navigation.selectedPlaylistId} playlistType={navigation.selectedPlaylistType} />
     </div>
   {/if}
 
-  {#if activeView === "home"}
+  {#if navigation.activeView === "home"}
     <HomeFeed {openAlbum} {openPlaylist} />
+  {/if}
+
+  {#if navigation.activeView === "library"}
+    <LibraryView />
   {/if}
 </main>
