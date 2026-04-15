@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
-  import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
   import { fade } from "svelte/transition";
   import Play from "lucide-svelte/icons/play";
   import Shuffle from "lucide-svelte/icons/shuffle";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playback, type QueueTrack } from "$lib/playback.svelte";
+  import { fetchAppleMusic } from "$lib/appleMusic";
     function buildPlaylistQueue(): QueueTrack[] {
       const tracks = playlistData?.relationships?.tracks?.data || [];
       return tracks
@@ -62,26 +61,53 @@
     playlistData = null;
 
     try {
-      const devToken = (await invoke("get_apple_music_token")) as string;
-      const userToken = (await invoke("get_apple_music_user_token")) as string;
-
       const url =
         playlistType === "library-playlists"
-          ? `https://api.music.apple.com/v1/me/library/playlists/${playlistId}?include=tracks,catalog&limit[tracks]=100`
-          : `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}?include=tracks,curator&limit[tracks]=100`;
+          ? `https://api.music.apple.com/v1/me/library/playlists/${playlistId}?include=tracks,catalog`
+          : `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}?include=tracks,curator`;
 
-      const response = await tauriFetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${devToken}`,
-          "media-user-token": userToken,
-          Origin: "https://music.apple.com",
-          Referer: "https://music.apple.com/",
-        },
-      });
+      const response = await fetchAppleMusic(url, { method: "GET" });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch playlist details: ${response.status}`);
+      }
 
       const data = await response.json();
-      playlistData = data?.data?.[0] || null;
+      const basePlaylist = data?.data?.[0] || null;
+      if (!basePlaylist) {
+        playlistData = null;
+        return;
+      }
+
+      let allTracks = [...(basePlaylist.relationships?.tracks?.data || [])];
+      let nextTracksHref: string | null = basePlaylist.relationships?.tracks?.next ?? null;
+      const apiBase = "https://api.music.apple.com";
+
+      while (nextTracksHref) {
+        const pageUrl = nextTracksHref.startsWith("http") ? nextTracksHref : `${apiBase}${nextTracksHref}`;
+        const tracksResponse = await fetchAppleMusic(pageUrl, { method: "GET" });
+
+        if (!tracksResponse.ok) {
+          throw new Error(`Failed to fetch playlist tracks: ${tracksResponse.status}`);
+        }
+
+        const tracksData = await tracksResponse.json();
+        const pageTracks = tracksData?.data || [];
+        allTracks = [...allTracks, ...pageTracks];
+        nextTracksHref = tracksData?.next ?? null;
+      }
+
+      playlistData = {
+        ...basePlaylist,
+        relationships: {
+          ...basePlaylist.relationships,
+          tracks: {
+            ...basePlaylist.relationships?.tracks,
+            data: allTracks,
+            next: null,
+          },
+        },
+      };
     } catch (error) {
       console.error("Failed to fetch playlist details:", error);
       playlistData = null;

@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { fetchAppleMusic } from "$lib/appleMusic";
 import { navigation } from "./navigation.svelte";
 
 interface SearchResults {
@@ -24,9 +23,6 @@ class SearchState {
     stations: [],
   });
   isSearching = $state(false);
-  
-  private devToken: string | null = null;
-  private userToken: string | null = null;
 
   async handleSearch() {
     if (!this.query.trim()) {
@@ -36,23 +32,12 @@ class SearchState {
 
     this.isSearching = true;
     try {
-      if (!this.devToken) {
-        this.devToken = await invoke("get_apple_music_token");
-      }
-      if (!this.userToken) {
-        this.userToken = await invoke("get_apple_music_user_token");
-      }
-
-      const response = await tauriFetch(
+      const response = await fetchAppleMusic(
         `https://api.music.apple.com/v1/catalog/us/search?term=${encodeURIComponent(this.query)}&types=songs,albums,artists,playlists,music-videos,stations&limit=25&with=topResults`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.devToken}`,
-            "media-user-token": this.userToken || "",
             "User-Agent": "Mozilla/5.0",
-            Origin: "https://music.apple.com",
-            Referer: "https://music.apple.com/",
             Accept: "*/*",
           },
         },

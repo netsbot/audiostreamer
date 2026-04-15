@@ -8,6 +8,7 @@
   import MoreHorizontal from "lucide-svelte/icons/more-horizontal";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playback } from "$lib/playback.svelte";
+  import { fetchAppleMusic } from "$lib/appleMusic";
 
   let {
     openAlbum = (id: string) => {},
@@ -34,30 +35,23 @@
     }
   }
 
-  function isAvcLevel(level: Level): boolean {
-    const codecs = (level.codecs || "").toLowerCase();
-    return codecs.includes("avc1") || codecs.includes("avc3");
-  }
-
-  function findScreenSizedAvcLevelIndex(levels: Level[], playerHeightCssPx: number): number {
-    const avcLevels = levels
+  function findScreenSizedLevelIndex(levels: Level[], playerHeightCssPx: number): number {
+    const allLevels = levels
       .map((level, index) => ({
         index,
         height: level.height ?? 0,
         bitrate: level.bitrate ?? 0,
-        avc: isAvcLevel(level),
       }))
-      .filter((level) => level.avc)
       .sort((a, b) => (a.height - b.height) || (a.bitrate - b.bitrate));
 
-    if (avcLevels.length === 0) return -1;
+    if (allLevels.length === 0) return -1;
 
     const deviceScale = window.devicePixelRatio || 1;
     const targetHeight = Math.round(playerHeightCssPx * deviceScale * 1.15);
 
     // Keep a practical ceiling to avoid unstable playback on Linux/webkit.
-    const capped = avcLevels.filter((level) => level.height <= 1080 && level.bitrate <= 5_000_000);
-    const pool = capped.length > 0 ? capped : avcLevels;
+    const capped = allLevels.filter((level) => level.height <= 1080 && level.bitrate <= 5_000_000);
+    const pool = capped.length > 0 ? capped : allLevels;
 
     // Pick the first level that meets target height, otherwise the highest available.
     const atOrAboveTarget = pool.find((level) => level.height >= targetHeight);
@@ -82,11 +76,11 @@
     const applyScreenSizedLevel = () => {
       if (!hls) return;
       const elementHeight = node.clientHeight || 720;
-      const avcLevelIndex = findScreenSizedAvcLevelIndex(hls.levels, elementHeight);
-      if (avcLevelIndex >= 0) {
-        hls.currentLevel = avcLevelIndex;
-        hls.nextLevel = avcLevelIndex;
-        hls.loadLevel = avcLevelIndex;
+      const levelIndex = findScreenSizedLevelIndex(hls.levels, elementHeight);
+      if (levelIndex >= 0) {
+        hls.currentLevel = levelIndex;
+        hls.nextLevel = levelIndex;
+        hls.loadLevel = levelIndex;
       }
     };
 
@@ -123,7 +117,7 @@
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (!hls) return;
 
-          // Pick AVC quality based on current rendered size.
+          // Pick quality based on current rendered size.
           applyScreenSizedLevel();
 
           void node.play().catch(() => {});
@@ -391,9 +385,6 @@
     isLoading = true;
     error = null;
     try {
-      const devToken = (await invoke("get_apple_music_token")) as string;
-      const userToken = (await invoke("get_apple_music_user_token")) as string;
-
       const params = new URLSearchParams({
         "art[url]": "f",
         "displayFilter[kind]": "MusicCircleCoverShelf,MusicConcertsEmptyShelf,MusicCoverGrid,MusicCoverShelf,MusicNotesHeroShelf,MusicSocialCardShelf,MusicSuperHeroShelf",
@@ -418,11 +409,9 @@
 
       const url = `https://amp-api.music.apple.com/v1/me/recommendations?${params.toString()}`;
 
-      const response = await tauriFetch(url, {
+      const response = await fetchAppleMusic(url, {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${devToken}`,
-          "media-user-token": userToken,
           "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
           "sec-ch-ua-platform": '"Linux"',
           Referer: "https://beta.music.apple.com/",

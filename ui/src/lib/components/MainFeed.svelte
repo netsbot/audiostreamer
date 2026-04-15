@@ -13,7 +13,6 @@
   import PlaylistView from "./PlaylistView.svelte";
   import SearchResults from "./SearchResults.svelte";
   import HomeFeed from "./HomeFeed.svelte";
-  import LibraryView from "./LibraryView.svelte";
   import { navigation } from "$lib/navigation.svelte";
   import { search } from "$lib/search.svelte";
 
@@ -75,9 +74,5 @@
 
   {#if navigation.activeView === "home"}
     <HomeFeed {openAlbum} {openPlaylist} />
-  {/if}
-
-  {#if navigation.activeView === "library"}
-    <LibraryView />
   {/if}
 </main>

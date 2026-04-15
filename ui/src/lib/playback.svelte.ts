@@ -1,6 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { fetchAppleMusic } from '$lib/appleMusic';
 
 export interface TrackMetadata {
     title: string;
@@ -376,20 +375,12 @@ class PlaybackState {
     }
 
     private async fetchStationTracks(stationId: string, limit = 1): Promise<QueueTrack[]> {
-        const devToken = await invoke<string>('get_apple_music_token');
-        const userToken = await invoke<string>('get_apple_music_user_token');
-        const headers = {
-            Authorization: `Bearer ${devToken}`,
-            'media-user-token': userToken,
-            Origin: 'https://music.apple.com',
-            Referer: 'https://music.apple.com/',
-            'Content-Type': 'application/json'
-        };
-
         try {
-            const response = await tauriFetch(`https://api.music.apple.com/v1/me/stations/next-tracks/${stationId}?limit=${limit}`, {
+            const response = await fetchAppleMusic(`https://api.music.apple.com/v1/me/stations/next-tracks/${stationId}?limit=${limit}`, {
                 method: 'POST',
-                headers
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
             if (response.ok) {
                 const payload: any = await response.json();

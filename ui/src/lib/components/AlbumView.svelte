@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
   import { fade, fly } from "svelte/transition";
   import Play from "lucide-svelte/icons/play";
   import Shuffle from "lucide-svelte/icons/shuffle";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import TrackList from "./TrackList.svelte";
+  import { fetchAppleMusic } from "$lib/appleMusic";
 
   let { albumId = "", albumType = "albums" } = $props();
 
@@ -32,23 +31,12 @@
     albumData = null;
 
     try {
-      const devToken = (await invoke("get_apple_music_token")) as string;
-      const userToken = (await invoke("get_apple_music_user_token")) as string;
-
       const url =
         albumType === "library-albums"
           ? `https://api.music.apple.com/v1/me/library/albums/${albumId}?include=tracks,artists`
           : `https://api.music.apple.com/v1/catalog/us/albums/${albumId}?include=tracks,artists&views=related-albums`;
 
-      const response = await tauriFetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${devToken}`,
-          "media-user-token": userToken,
-          Origin: "https://music.apple.com",
-          Referer: "https://music.apple.com/",
-        },
-      });
+      const response = await fetchAppleMusic(url, { method: "GET" });
 
       const data = await response.json();
       albumData = data?.data?.[0] || null;

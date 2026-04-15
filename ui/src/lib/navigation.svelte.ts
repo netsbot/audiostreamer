@@ -1,6 +1,6 @@
 import { playback } from './playback.svelte';
 
-export type ViewMode = 'home' | 'search' | 'album' | 'playlist' | 'library' | 'browse' | 'radio';
+export type ViewMode = 'home' | 'search' | 'album' | 'playlist';
 
 class NavigationState {
   activeView = $state<ViewMode>('home');
