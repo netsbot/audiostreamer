@@ -8,6 +8,7 @@
   import { playback, type QueueTrack } from "$lib/playback.svelte";
   import { library } from "$lib/library.svelte";
   import Heart from "lucide-svelte/icons/heart";
+  import { snapShelf } from "$lib/actions/snapShelf";
 
   let { 
     searchResults, 
@@ -66,11 +67,7 @@
     });
   }
 
-  const shelfItemWidth = $derived(
-    playback.lyricsPaneOpen
-      ? "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]"
-      : "shrink-0 w-44 lg:w-[calc((100%-7.5rem)/6)]"
-  );
+  const shelfItemWidth = "shrink-0 w-44 w-[var(--snap-item-width)] last:mr-6 snap-start snap-always";
 </script>
 
 <div
@@ -89,7 +86,7 @@
   {#if searchResults.top.length > 0}
     <section class="mb-12">
       <h3 class="text-xl font-bold mb-6 text-white/90">Top Results</h3>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.top.slice(0, 6) as item}
           <button
             type="button"
@@ -115,9 +112,11 @@
                 alt={item.attributes.name}
               />
               <div
-                class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                class="absolute inset-0 bg-black/35 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
               >
-                <Play class="size-10 text-white fill-current translate-x-1" />
+                <div class="w-12 h-12 rounded-full bg-white/12 backdrop-blur-md border border-white/25 shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform] duration-200 will-change-[opacity,transform,backdrop-filter]">
+                  <Play class="size-6 text-white fill-current translate-x-0.5" />
+                </div>
               </div>
             </div>
             <div>
@@ -141,7 +140,7 @@
         <h3 class="text-xl font-bold text-white/90">Artists</h3>
         <button class="text-red-500 font-bold text-[10px] uppercase tracking-wider hover:text-red-400">See All</button>
       </div>
-      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.artists as artist}
           <div
             class="{shelfItemWidth} flex flex-col items-center group cursor-pointer text-center snap-start"
@@ -177,7 +176,7 @@
         <h3 class="text-xl font-bold text-white/90">Albums</h3>
         <button class="text-red-500 font-bold text-[10px] uppercase tracking-wider hover:text-red-400">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.albums as album}
           <button
             type="button"
@@ -193,9 +192,9 @@
                 alt={album.attributes.name}
               />
               <div
-                class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300"
+                class="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 pointer-events-none"
               >
-                <div class="bg-white/10 backdrop-blur-md p-3 rounded-full">
+                <div class="w-11 h-11 rounded-full bg-white/12 backdrop-blur-md border border-white/25 shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform] duration-200 will-change-[opacity,transform,backdrop-filter]">
                   <Play class="size-5 text-white fill-current translate-x-0.5" />
                 </div>
               </div>
@@ -269,7 +268,7 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.playlists as playlist}
           <button
             type="button"
@@ -301,7 +300,7 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+      <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.musicVideos as mv}
           <div class="{shelfItemWidth} group cursor-pointer snap-start">
             <div class="aspect-video rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
@@ -334,7 +333,7 @@
         </h3>
         <button class="text-zinc-500 font-bold text-[10px] uppercase tracking-wider hover:text-white transition-colors">See All</button>
       </div>
-      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-6 snap-x snap-mandatory">
+      <div class="flex gap-8 overflow-x-auto no-scrollbar pb-6 snap-x snap-mandatory" use:snapShelf>
         {#each searchResults.stations as station}
           <button
             type="button"

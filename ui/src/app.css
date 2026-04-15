@@ -5,6 +5,9 @@
 
 :root {
   font-family: 'Inter Variable', 'Segoe UI', sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   
   /* Colors from Stitch Design */
   --background: #0c0c0c;

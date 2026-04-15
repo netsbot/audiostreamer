@@ -6,12 +6,14 @@
   import Loader2 from "lucide-svelte/icons/loader-2";
   import TrackList from "./TrackList.svelte";
   import { fetchAppleMusic } from "$lib/appleMusic";
+  import { snapShelf } from "$lib/actions/snapShelf";
 
   let { albumId = "", albumType = "albums" } = $props();
 
   let albumData = $state<any>(null);
   let isLoading = $state(true);
   let isNotesExpanded = $state(false);
+  const relatedAlbumWidthClass = "shrink-0 w-44 w-[var(--snap-item-width)] last:mr-6 text-left group transition-all snap-start snap-always";
 
   function resolveTrack(track: any) {
     const catalogTrack = track.relationships?.catalog?.data?.[0];
@@ -232,10 +234,10 @@
       {#if albumData.views?.['related-albums']?.data?.length > 0}
         <section class="mt-20">
           <h3 class="text-xl font-bold mb-6 text-white/90">Related Albums</h3>
-          <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+          <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
             {#each albumData.views['related-albums'].data as related}
               <button 
-                class="shrink-0 w-44 lg:w-[calc((100%-6rem)/5)] text-left group transition-all snap-start"
+                class={relatedAlbumWidthClass}
                 onclick={() => {
                   albumId = related.id;
                   window.scrollTo({ top: 0, behavior: 'smooth' });

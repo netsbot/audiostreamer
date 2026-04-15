@@ -5,10 +5,10 @@
   import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
   import { fade, fly } from "svelte/transition";
   import Play from "lucide-svelte/icons/play";
-  import MoreHorizontal from "lucide-svelte/icons/more-horizontal";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playback } from "$lib/playback.svelte";
   import { fetchAppleMusic } from "$lib/appleMusic";
+  import { snapShelf } from "$lib/actions/snapShelf";
 
   let {
     openAlbum = (id: string) => {},
@@ -20,13 +20,9 @@
   let isLoading = $state(true);
   let error = $state<string | null>(null);
 
-  const heroWidthClass = $derived(playback.lyricsPaneOpen
-    ? "lg:w-[calc((100%-4.5rem)/4)]"
-    : "lg:w-[calc((100%-6rem)/5)]");
+  const heroWidthClass = "lg:w-[var(--snap-item-width)]";
 
-  const standardShelfWidth = $derived(playback.lyricsPaneOpen
-    ? "shrink-0 w-44 lg:w-[calc((100%-6rem)/5)]"
-    : "shrink-0 w-44 lg:w-[calc((100%-7.5rem)/6)]");
+  const standardShelfWidth = "shrink-0 w-44 w-[var(--snap-item-width)] last:mr-6";
 
   function activateOnKey(event: KeyboardEvent, action: () => void) {
     if (event.key === "Enter" || event.key === " ") {
@@ -387,7 +383,7 @@
     try {
       const params = new URLSearchParams({
         "art[url]": "f",
-        "displayFilter[kind]": "MusicCircleCoverShelf,MusicConcertsEmptyShelf,MusicCoverGrid,MusicCoverShelf,MusicNotesHeroShelf,MusicSocialCardShelf,MusicSuperHeroShelf",
+        "displayFilter[kind]": "MusicCircleCoverShelf,MusicCoverGrid,MusicCoverShelf,MusicNotesHeroShelf,MusicSocialCardShelf,MusicSuperHeroShelf",
         "extend": "editorialArtwork,editorialVideo,plainEditorialCard,plainEditorialNotes",
         "extend[playlists]": "artistNames",
         "extend[stations]": "airTime,supportsAirTimeUpdates",
@@ -403,7 +399,7 @@
         "omit[resource]": "autos",
         "platform": "web",
         "timezone": "+08:00",
-        "types": "activities,albums,apple-curators,artists,concerts,curators,editorial-items,library-albums,library-playlists,music-movies,music-videos,playlists,social-profiles,social-upsells,songs,stations,tv-episodes,tv-shows,uploaded-audios,uploaded-videos",
+        "types": "activities,albums,apple-curators,artists,curators,editorial-items,library-albums,library-playlists,music-movies,music-videos,playlists,social-profiles,social-upsells,songs,stations,tv-episodes,tv-shows,uploaded-audios,uploaded-videos",
         "with": "friendsMix,library,social",
       });
 
@@ -458,7 +454,7 @@
   {@const videoUrl = getVideoUrl(resolved)}
   {@const eyebrow = getEyebrow(resolved)}
   {#if resolved.attributes}
-    <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] {heroWidthClass} max-w-none snap-start group cursor-pointer text-left">
+    <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] {heroWidthClass} max-w-none snap-start snap-always last:mr-6 group cursor-pointer text-left">
       <div 
         class="product-lockup relative rounded-2xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'};"
@@ -513,9 +509,9 @@
         </div>
 
         <!-- Platter Play Button -->
-        <div class="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 translate-y-3 group-hover:translate-y-0 transition-all duration-300">
+        <div class="absolute bottom-24 right-6 z-10 pointer-events-none">
           <button 
-            class="w-12 h-12 flex items-center justify-center bg-white text-zinc-950 rounded-full shadow-2xl transition-colors pointer-events-auto"
+            class="w-12 h-12 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full border border-white/25 shadow-2xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
             onclick={(e) => { e.stopPropagation(); handleItemClick(resolved); }}
             title="Play"
           >
@@ -531,7 +527,7 @@
   {@const resolved = resolveResource(item)}
   {@const artwork = getItemArtworkObject(resolved)}
   {#if resolved.attributes}
-    <div class="group cursor-pointer text-left {widthClass}">
+    <div class="group cursor-pointer text-left snap-start snap-always {widthClass}">
       <div 
         class="product-lockup relative {isRoundArtwork(resolved) ? 'rounded-full' : 'rounded-xl'} overflow-hidden aspect-square mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'}; --aspect-ratio: 1;"
@@ -563,26 +559,23 @@
         </div>
         
         <!-- Controls Overlay -->
-        <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-           <div class="flex items-center gap-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300">
+           <div class="absolute bottom-3 left-3 pointer-events-none">
+              <div
+          class="absolute inset-0 rounded-full bg-white/5 opacity-[0.02] backdrop-blur-md border border-transparent pointer-events-none"
+                aria-hidden="true"
+              ></div>
               <button 
-                class="w-10 h-10 flex items-center justify-center bg-white text-zinc-950 rounded-full shadow-xl transition-colors"
+                class="w-10 h-10 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full border border-white/25 shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
                 onclick={(e) => { e.stopPropagation(); handleItemClick(resolved); }}
                 title="Play"
               >
                 <Play class="size-5 fill-current translate-x-0.5" />
               </button>
-              <button 
-                class="w-10 h-10 flex items-center justify-center bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 hover:bg-black/60 transition-all"
-                onclick={(e) => { e.stopPropagation(); }}
-                title="More"
-              >
-                <MoreHorizontal class="size-5" />
-              </button>
            </div>
         </div>
       </div>
-      
+
       <div class="product-lockup__content">
         <h4 class="font-bold text-white text-[13px] truncate group-hover:text-red-500 transition-colors">
           {getItemTitle(resolved)}
@@ -596,6 +589,10 @@
 {/snippet}
 
 <div in:fade={{ duration: 400 }}>
+  <div
+    aria-hidden="true"
+    class="fixed top-0 left-0 w-px h-px bg-white/1 backdrop-blur-md pointer-events-none -z-10"
+  ></div>
   {#if isLoading}
     <div class="flex flex-col items-center justify-center h-[60vh] gap-4" in:fade>
       <Loader2 class="size-10 text-red-500 animate-spin" />
@@ -621,7 +618,7 @@
       {@const subtitle = getShelfSubtitle(rec)}
       {@const kind = rec.attributes?.display?.kind || ""}
       {@const isRecentlyPlayedShelf = title.toLowerCase().includes("recently played")}
-      {#if items.length > 0}
+      {#if items.length > 0 && kind !== "MusicConcertsEmptyShelf"}
         <section
           class="mb-14"
           in:fly={{ y: 20, duration: 400, delay: Math.min(shelfIndex * 60, 400) }}
@@ -643,7 +640,10 @@
 
           <!-- Hero Shelves (Top Picks etc.) -->
           {#if kind === "MusicNotesHeroShelf" || kind === "MusicSuperHeroShelf"}
-            <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+            <div
+              class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory"
+              use:snapShelf={{ minItemWidth: 288, maxItemWidth: 416, targetItemWidth: 336 }}
+            >
               {#each items as item}
                 {@render HeroCard(item)}
               {/each}
@@ -651,7 +651,7 @@
 
           <!-- Circle Cover Shelf (artists etc.) -->
           {:else if kind === "MusicCircleCoverShelf"}
-            <div class="flex gap-7 overflow-x-auto no-scrollbar pb-4">
+            <div class="flex gap-7 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
               {#each items as item}
                 {@render Card(item, standardShelfWidth)}
               {/each}
@@ -659,7 +659,7 @@
 
           <!-- Cover Grid — 2-column grid -->
           {:else if kind === "MusicCoverGrid"}
-            <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+            <div class="flex gap-6 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
               {#each items.slice(0, 8) as item}
                 {@render Card(item, standardShelfWidth)}
               {/each}
@@ -667,7 +667,7 @@
 
           <!-- Default: Horizontal Cover Shelf (most common) -->
           {:else}
-            <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory">
+            <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4 snap-x snap-mandatory" use:snapShelf>
               {#each items as item}
                 {@render Card(item, standardShelfWidth)}
               {/each}
