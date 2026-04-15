@@ -439,7 +439,6 @@
         return resolved;
       });
 
-      console.log(`Found ${recommendations.length} recommendation shelves`);
     } catch (e: any) {
       console.error("Failed to fetch recommendations:", e);
       error = e.message || "Failed to load recommendations";
@@ -458,17 +457,6 @@
   {@const artwork = getHeroArtwork(resolved)}
   {@const videoUrl = getVideoUrl(resolved)}
   {@const eyebrow = getEyebrow(resolved)}
-  {(() => {
-    if (resolved.attributes) {
-      console.log(`[HeroCard Debug] ${getItemTitle(resolved)}:`, {
-        artworkUrl: artwork?.url,
-        finalUrl: getArtworkUrl(artwork, 600, 800),
-        videoUrl,
-        eyebrow
-      });
-    }
-    return '';
-  })()}
   {#if resolved.attributes}
     <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] {heroWidthClass} max-w-none snap-start group cursor-pointer text-left">
       <div 

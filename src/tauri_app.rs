@@ -6,17 +6,18 @@ use tauri::{AppHandle, Cef, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
+use crate::discord::DiscordState;
 
 use crate::sinks::playback::PlaybackControls;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
-struct PlaySongMetadata {
-    title: String,
-    artist: String,
-    album: String,
-    artwork_url: Option<String>,
-    duration_ms: Option<u64>,
+pub struct PlaySongMetadata {
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub artwork_url: Option<String>,
+    pub duration_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +61,7 @@ struct AppState {
     app_handle: AppHandle<Cef>,
     runtime: Arc<Mutex<PlaybackRuntime>>,
     controls: Arc<Mutex<MediaControls>>,
+    discord: Arc<DiscordState>,
 }
 
 impl AppState {
@@ -68,6 +70,7 @@ impl AppState {
             app_handle,
             runtime: Arc::new(Mutex::new(PlaybackRuntime::new())),
             controls: Arc::new(Mutex::new(controls)),
+            discord: Arc::new(DiscordState::new()),
         }
     }
 }
@@ -129,6 +132,15 @@ async fn start_playback(
         duration: metadata.duration_ms.map(|d| Duration::from_millis(d)),
     });
     let _ = controls.set_playback(MediaPlayback::Playing { progress: None });
+
+    // Update Discord
+    let discord = state.discord.clone();
+    let metadata_for_discord = metadata.clone();
+    tauri::async_runtime::spawn(async move {
+        discord
+            .update_playback(&metadata_for_discord, start_time, false)
+            .await;
+    });
 
     let runtime_for_task = runtime.clone();
     let adam_id_for_task = adam_id.clone();
@@ -281,6 +293,18 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
         if let Some(control) = control {
             control.pause().map_err(|error| error.to_string())?;
         }
+        let discord = state.discord.clone();
+        let runtime = state.runtime.clone();
+        tauri::async_runtime::spawn(async move {
+            let runtime = runtime.lock().await;
+            if let Some(metadata) = &runtime.metadata {
+                let metadata = metadata.clone();
+                let current_time = runtime.frames_played.load(Ordering::SeqCst) as f64
+                    / runtime.output_sample_rate.load(Ordering::SeqCst).max(1) as f64;
+                discord.update_playback(&metadata, current_time, true).await;
+            }
+        });
+
         paused.store(true, Ordering::SeqCst);
         let _ = state.controls.lock().await.set_playback(MediaPlayback::Paused { progress: None });
         Ok(false)
@@ -288,6 +312,19 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
         if let Some(control) = control {
             control.resume().map_err(|error| error.to_string())?;
         }
+
+        let discord = state.discord.clone();
+        let runtime = state.runtime.clone();
+        tauri::async_runtime::spawn(async move {
+            let runtime = runtime.lock().await;
+            if let Some(metadata) = &runtime.metadata {
+                let metadata = metadata.clone();
+                let current_time = runtime.frames_played.load(Ordering::SeqCst) as f64
+                    / runtime.output_sample_rate.load(Ordering::SeqCst).max(1) as f64;
+                discord.update_playback(&metadata, current_time, false).await;
+            }
+        });
+
         paused.store(false, Ordering::SeqCst);
         let _ = state.controls.lock().await.set_playback(MediaPlayback::Playing { progress: None });
         Ok(true)

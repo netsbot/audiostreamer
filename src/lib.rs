@@ -9,4 +9,5 @@ pub mod am_wrapper;
 pub mod client;
 pub mod gpac;
 pub mod gpac_ffi;
+pub mod discord;
 pub mod tauri_app;

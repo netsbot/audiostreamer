@@ -12,6 +12,8 @@ class LibraryState {
   private readonly favoritesCacheKey = "audiostreamer:favorites-cache:v1";
   private readonly favoritesCacheTtlMs = 5 * 60 * 1000;
   private favoritesLoading = false;
+  private playlistsInFlight: Promise<void> | null = null;
+  private favoritesInFlight: Promise<void> | null = null;
 
   playlists = $state<LibraryPlaylist[]>([]);
   isLoading = $state(false);
@@ -20,6 +22,9 @@ class LibraryState {
   favoritesLastFetchedAt = $state(0);
 
   async fetchPlaylists(force = false) {
+    if (this.playlistsInFlight) return this.playlistsInFlight;
+
+    const run = async () => {
     if (this.loaded && !force) return;
     if (this.isLoading) return;
 
@@ -62,6 +67,12 @@ class LibraryState {
     } finally {
       this.isLoading = false;
     }
+    };
+
+    this.playlistsInFlight = run().finally(() => {
+      this.playlistsInFlight = null;
+    });
+    return this.playlistsInFlight;
   }
 
   favoritedIds = $state<Set<string>>(new Set());
@@ -145,6 +156,9 @@ class LibraryState {
   }
 
   async fetchFavorites(force = false) {
+    if (this.favoritesInFlight) return this.favoritesInFlight;
+
+    const run = async () => {
     if (this.favoritesLoading) return;
 
     const now = Date.now();
@@ -165,31 +179,12 @@ class LibraryState {
 
     this.favoritesLoading = true;
     try {
-      const apiBase = "https://api.music.apple.com";
       const newFavs = new Set<string>();
 
-      // Find special Favorite Songs playlist in user library.
-      let favoritePlaylistId: string | null = null;
-      let playlistPage: string | null = "/v1/me/library/playlists";
-
-      while (playlistPage && !favoritePlaylistId) {
-        const url = playlistPage.startsWith("http") ? playlistPage : `${apiBase}${playlistPage}`;
-        const response = await fetchAppleMusic(url, { method: "GET" });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch library playlists: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const playlists = data.data || [];
-        const found = playlists.find((p: any) => this.isFavoriteSongsPlaylist(p.attributes?.name));
-        if (found?.id) {
-          favoritePlaylistId = found.id;
-          break;
-        }
-
-        playlistPage = data.next ?? null;
-      }
+      // Reuse playlist dataset already needed by sidebar. Avoid duplicate startup requests.
+      await this.fetchPlaylists();
+      const favoritePlaylist = this.playlists.find((p) => this.isFavoriteSongsPlaylist(p.name));
+      const favoritePlaylistId = favoritePlaylist?.id ?? null;
 
       if (!favoritePlaylistId) {
         this.favoritedIds = newFavs;
@@ -199,7 +194,8 @@ class LibraryState {
       }
 
       // Load songs from Favorite Songs playlist and fill set.
-      let nextHref: string | null = `/v1/me/library/playlists/${favoritePlaylistId}/tracks?include=catalog`;
+      const apiBase = "https://api.music.apple.com";
+      let nextHref: string | null = `/v1/me/library/playlists/${favoritePlaylistId}/tracks?include=catalog&limit=100`;
 
       while (nextHref) {
         const url = nextHref.startsWith("http") ? nextHref : `${apiBase}${nextHref}`;
@@ -212,14 +208,6 @@ class LibraryState {
         const data = await response.json();
         const songs = data.data || [];
         const resourceLibrarySongs = data.resources?.["library-songs"] || {};
-        console.log("Favorite songs page:", songs.map((s: any) => ({
-          id: s.id,
-          name: s.attributes?.name ?? resourceLibrarySongs[s.id]?.attributes?.name,
-          catalogId: s.relationships?.catalog?.data?.[0]?.id
-            ?? s.attributes?.playParams?.catalogId
-            ?? resourceLibrarySongs[s.id]?.relationships?.catalog?.data?.[0]?.id
-            ?? resourceLibrarySongs[s.id]?.attributes?.playParams?.catalogId,
-        })));
         for (const s of songs) {
           // Keep both library ids and catalog ids for UI checks from mixed sources.
           if (s.id) newFavs.add(s.id);
@@ -232,7 +220,6 @@ class LibraryState {
         }
         nextHref = data.next ?? null;
       }
-      console.log("Favorite songs loaded:", newFavs.size);
       this.favoritedIds = newFavs;
       this.favoritesLastFetchedAt = Date.now();
       this.saveFavoritesCache(newFavs, this.favoritesLastFetchedAt);
@@ -241,6 +228,12 @@ class LibraryState {
     } finally {
       this.favoritesLoading = false;
     }
+    };
+
+    this.favoritesInFlight = run().finally(() => {
+      this.favoritesInFlight = null;
+    });
+    return this.favoritesInFlight;
   }
 
   private formatArtworkUrl(artwork: any, size = 300): string | null {

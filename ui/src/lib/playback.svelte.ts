@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event';
 import { fetchAppleMusic } from '$lib/appleMusic';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface TrackMetadata {
     title: string;
