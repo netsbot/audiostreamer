@@ -35,6 +35,8 @@ class PlaybackState {
     currentTime = $state(0);
     totalTime = $state(0);
     lyricsPaneOpen = $state(true);
+    isLyricsFullscreen = $state(false);
+    fullscreenMode = $state<'lyrics' | 'now-playing'>('lyrics');
     isShuffled = $state(false);
     repeatMode = $state(0); // 0: Off, 1: All, 2: One
     rightPaneMode = $state<'lyrics' | 'queue'>('lyrics');
@@ -285,6 +287,23 @@ class PlaybackState {
 
     toggleLyricsPane() {
         this.lyricsPaneOpen = !this.lyricsPaneOpen;
+        if (!this.lyricsPaneOpen) {
+            this.isLyricsFullscreen = false;
+        }
+    }
+
+    toggleLyricsFullscreen() {
+        this.isLyricsFullscreen = !this.isLyricsFullscreen;
+        if (this.isLyricsFullscreen) {
+            this.fullscreenMode = 'lyrics';
+            this.lyricsPaneOpen = true;
+            this.rightPaneMode = 'lyrics';
+        }
+    }
+
+    openNowPlayingFullscreen() {
+        this.fullscreenMode = 'now-playing';
+        this.isLyricsFullscreen = true;
     }
 
     toggleShuffle() {

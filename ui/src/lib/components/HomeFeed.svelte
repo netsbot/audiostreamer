@@ -456,7 +456,7 @@
   {#if resolved.attributes}
     <div class="flex-shrink-0 w-[64vw] sm:w-[50vw] md:w-[36vw] {heroWidthClass} max-w-none snap-start snap-always last:mr-6 group cursor-pointer text-left">
       <div 
-        class="product-lockup relative rounded-2xl overflow-hidden aspect-[3/4] mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
+        class="product-lockup relative rounded-2xl overflow-hidden aspect-[3/4] mb-3 shadow-2xl transition-all duration-500"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'};"
         role="button"
         tabindex="0"
@@ -511,7 +511,7 @@
         <!-- Platter Play Button -->
         <div class="absolute bottom-24 right-6 z-10 pointer-events-none">
           <button 
-            class="w-12 h-12 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full border border-white/25 shadow-2xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
+            class="w-12 h-12 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full shadow-2xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
             onclick={(e) => { e.stopPropagation(); handleItemClick(resolved); }}
             title="Play"
           >
@@ -529,7 +529,7 @@
   {#if resolved.attributes}
     <div class="group cursor-pointer text-left snap-start snap-always {widthClass}">
       <div 
-        class="product-lockup relative {isRoundArtwork(resolved) ? 'rounded-full' : 'rounded-xl'} overflow-hidden aspect-square mb-3 border border-white/5 shadow-2xl transition-all duration-500 group-hover:border-white/20"
+        class="product-lockup relative {isRoundArtwork(resolved) ? 'rounded-full' : 'rounded-xl'} overflow-hidden aspect-square mb-3 shadow-2xl transition-all duration-500"
         style="background-color: #{artwork?.bgColor || '18181b'}; --artwork-bg-color: #{artwork?.bgColor || '18181b'}; --aspect-ratio: 1;"
         role="button"
         tabindex="0"
@@ -562,11 +562,11 @@
         <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300">
            <div class="absolute bottom-3 left-3 pointer-events-none">
               <div
-          class="absolute inset-0 rounded-full bg-white/5 opacity-[0.02] backdrop-blur-md border border-transparent pointer-events-none"
+          class="absolute inset-0 rounded-full bg-white/5 opacity-[0.02] backdrop-blur-md pointer-events-none"
                 aria-hidden="true"
               ></div>
               <button 
-                class="w-10 h-10 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full border border-white/25 shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
+                class="w-10 h-10 flex items-center justify-center bg-white/12 backdrop-blur-md text-white rounded-full shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-[opacity,transform,background-color] duration-200 will-change-[opacity,transform,backdrop-filter] hover:bg-white/20 pointer-events-auto"
                 onclick={(e) => { e.stopPropagation(); handleItemClick(resolved); }}
                 title="Play"
               >
@@ -631,11 +631,6 @@
                 <p class="text-zinc-500 text-xs mt-0.5">{subtitle}</p>
               {/if}
             </div>
-            {#if items.length > 8}
-              <button class="text-red-500 font-bold text-[10px] uppercase tracking-widest hover:text-red-400 transition-colors">
-                See All
-              </button>
-            {/if}
           </div>
 
           <!-- Hero Shelves (Top Picks etc.) -->

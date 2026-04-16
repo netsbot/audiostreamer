@@ -5,13 +5,11 @@
   import Play from 'lucide-svelte/icons/play';
   import SkipForward from 'lucide-svelte/icons/skip-forward';
   import Repeat from 'lucide-svelte/icons/repeat';
-  import Volume2 from 'lucide-svelte/icons/volume-2';
-  import Mic2 from 'lucide-svelte/icons/mic-2';
   import MicVocal from 'lucide-svelte/icons/mic-vocal';
-  import User from 'lucide-svelte/icons/user';
   import Pause from 'lucide-svelte/icons/pause';
   import Repeat1 from 'lucide-svelte/icons/repeat-1';
   import ListMusic from 'lucide-svelte/icons/list-music';
+  import Maximize2 from 'lucide-svelte/icons/maximize-2';
   
   import { playback } from '$lib/playback.svelte';
   import { library } from '$lib/library.svelte';
@@ -44,9 +42,20 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
+  function toggleSidePane(mode: 'lyrics' | 'queue') {
+    playback.isLyricsFullscreen = false;
+    if (playback.lyricsPaneOpen && playback.rightPaneMode === mode) {
+      playback.lyricsPaneOpen = false;
+      return;
+    }
+
+    playback.lyricsPaneOpen = true;
+    playback.rightPaneMode = mode;
+  }
+
   const defaultTrack = {
-    title: 'Not Playing',
-    artist: 'Select a song to start',
+    title: '',
+    artist: '',
     album: '',
     image: ''
   };
@@ -55,12 +64,20 @@
 <footer class="fixed bottom-0 w-full z-50 border-t border-white/5 bg-zinc-950/80 backdrop-blur-3xl shadow-2xl h-20 flex items-center px-8 justify-between">
   <!-- Track Info -->
   <div class="flex items-center gap-4 w-1/4">
-    <div class="relative w-12 h-12 overflow-hidden rounded-lg shadow-lg bg-zinc-900 flex items-center justify-center">
+    <div class="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-zinc-900 shadow-lg">
       {#if playback.currentTrack?.artwork_url}
         <img src={playback.currentTrack.artwork_url} alt={playback.currentTrack.title} class="w-full h-full object-cover" />
       {:else}
         <Music class="size-6 text-zinc-700" />
       {/if}
+      <button
+        class="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/35 group-hover:opacity-100"
+        onclick={() => playback.openNowPlayingFullscreen()}
+        aria-label="Open now playing fullscreen"
+        title="Now Playing Fullscreen"
+      >
+        <Maximize2 class="size-4 text-white" />
+      </button>
     </div>
     <div class="flex flex-col overflow-hidden">
       <div class="flex items-center gap-2">
@@ -156,19 +173,9 @@
 
   <!-- Volume & Tools -->
   <div class="flex items-center justify-end gap-4 w-1/4">
-    
-    
-    <div class="flex items-center bg-zinc-900/50 rounded-lg p-1 border border-white/5">
-      <button
-        class="p-1.5 rounded-md transition-all outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'lyrics' ? 'text-red-500 bg-white/5 shadow-sm' : 'text-zinc-500 hover:text-white'}"
-        onclick={() => {
-          if (playback.lyricsPaneOpen && playback.rightPaneMode === 'lyrics') {
-            playback.lyricsPaneOpen = false;
-          } else {
-            playback.lyricsPaneOpen = true;
-            playback.rightPaneMode = 'lyrics';
-          }
-        }}
+          <button
+        class="p-1.5 rounded-md transition-colors outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'lyrics' ? 'text-red-500' : 'text-zinc-500 hover:text-white'}"
+            onclick={() => toggleSidePane('lyrics')}
         aria-label="Toggle lyrics"
         title="Lyrics"
       >
@@ -176,22 +183,12 @@
       </button>
 
       <button
-        class="p-1.5 rounded-md transition-all outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'queue' ? 'text-red-500 bg-white/5 shadow-sm' : 'text-zinc-500 hover:text-white'}"
-        onclick={() => {
-          if (playback.lyricsPaneOpen && playback.rightPaneMode === 'queue') {
-            playback.lyricsPaneOpen = false;
-          } else {
-            playback.lyricsPaneOpen = true;
-            playback.rightPaneMode = 'queue';
-          }
-        }}
+        class="p-1.5 rounded-md transition-colors outline-none focus:outline-none {playback.lyricsPaneOpen && playback.rightPaneMode === 'queue' ? 'text-red-500' : 'text-zinc-500 hover:text-white'}"
+            onclick={() => toggleSidePane('queue')}
         aria-label="Toggle queue"
         title="Playing Next"
       >
         <ListMusic class="size-4" />
       </button>
-    </div>
-
-    <button class="text-zinc-500 hover:text-white transition-colors ml-2"><User class="size-4" /></button>
   </div>
 </footer>

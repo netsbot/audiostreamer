@@ -1,33 +1,11 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import Maximize2 from 'lucide-svelte/icons/maximize-2';
-  import ListMusic from 'lucide-svelte/icons/list-music';
-  import MicVocal from 'lucide-svelte/icons/mic-vocal';
   import X from 'lucide-svelte/icons/x';
   import Play from 'lucide-svelte/icons/play';
   import Heart from 'lucide-svelte/icons/heart';
   import { playback } from '$lib/playback.svelte';
   import { library } from '$lib/library.svelte';
-
-  type Syllable = {
-    text: string;
-    start: number;
-    end: number;
-    isBackground: boolean;
-  };
-
-  type Word = {
-    syllables: Syllable[];
-    hasTrailingSpace: boolean;
-  };
-
-  type LyricLine = {
-    text: string;
-    start: number;
-    end: number;
-    words: Word[];
-    fullLineHighlight: boolean;
-  };
+  import { extractTtml, parseTtmlToLines, type LyricLine } from '$lib/lyrics/ttml';
 
   let lines = $state<LyricLine[]>([]);
   let isLoading = $state(false);
@@ -36,32 +14,6 @@
   let scroller = $state<HTMLElement | null>(null);
   let lastScrolledLineIndex = $state(-1);
   const lineRefs = new Map<number, HTMLElement>();
-
-  function parseTtmlTime(input: string | null): number {
-    if (!input) return 0;
-    const parts = input.split(':');
-    if (parts.length === 1) return Number.parseFloat(parts[0]) || 0;
-    if (parts.length === 2) {
-      const minutes = Number.parseFloat(parts[0]) || 0;
-      const seconds = Number.parseFloat(parts[1]) || 0;
-      return minutes * 60 + seconds;
-    }
-    if (parts.length === 3) {
-      const hours = Number.parseFloat(parts[0]) || 0;
-      const minutes = Number.parseFloat(parts[1]) || 0;
-      const seconds = Number.parseFloat(parts[2]) || 0;
-      return hours * 3600 + minutes * 60 + seconds;
-    }
-    return 0;
-  }
-
-  function isBackgroundSpan(node: Element): boolean {
-    return node.getAttribute('ttm:role') === 'x-bg';
-  }
-
-  function tokenizeByWhitespace(text: string): string[] {
-    return text.match(/\s+|[^\s]+/g) ?? [];
-  }
 
   function getLineDisplayEnd(lineIndex: number): number {
     const currentLine = lines[lineIndex];
@@ -73,141 +25,6 @@
     }
 
     return currentLine.end;
-  }
-
-  function parseTtmlToLines(ttml: string): LyricLine[] {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(ttml, 'application/xml');
-    const pNodes = Array.from(doc.getElementsByTagName('p'));
-    const result: LyricLine[] = [];
-
-    for (let pIndex = 0; pIndex < pNodes.length; pIndex++) {
-      const pNode = pNodes[pIndex];
-      const lineStart = parseTtmlTime(pNode.getAttribute('begin'));
-      const nextLineStart = pIndex + 1 < pNodes.length
-        ? parseTtmlTime(pNodes[pIndex + 1].getAttribute('begin'))
-        : 0;
-      let lineEnd = parseTtmlTime(pNode.getAttribute('end'));
-
-      // Some TTML variants omit line end times. Fall back to next line start
-      // (or a reasonable default) so non-syllable lyrics stay visible.
-      if (lineEnd <= lineStart) {
-        if (nextLineStart > lineStart) {
-          lineEnd = nextLineStart;
-        } else {
-          lineEnd = lineStart + 4;
-        }
-      }
-      const allSyllables: Syllable[] = [];
-      let pendingText = '';
-
-      for (const child of Array.from(pNode.childNodes)) {
-        if (child.nodeType === Node.TEXT_NODE) {
-          pendingText += child.textContent ?? '';
-          continue;
-        }
-        if (child.nodeType !== Node.ELEMENT_NODE) continue;
-        const el = child as Element;
-        if (el.tagName !== 'span') continue;
-        const isBg = isBackgroundSpan(el);
-
-        const raw = el.textContent ?? '';
-        if (!raw) continue;
-
-        const text = `${pendingText}${raw}`;
-        pendingText = '';
-        allSyllables.push({
-          text,
-          start: parseTtmlTime(el.getAttribute('begin')) || lineStart,
-          end: parseTtmlTime(el.getAttribute('end')) || lineEnd,
-          isBackground: isBg,
-        });
-      }
-
-      if (pendingText.trim()) {
-        const lastEnd = allSyllables.length > 0 ? allSyllables[allSyllables.length - 1].end : lineStart;
-        const safeStart = Math.min(lastEnd, lineEnd - 0.001);
-        allSyllables.push({ text: pendingText, start: safeStart, end: lineEnd, isBackground: false });
-      }
-
-      if (allSyllables.length === 0) {
-        const text = (pNode.textContent ?? '').trim();
-        if (!text) continue;
-        result.push({
-          text, start: lineStart, end: lineEnd,
-          words: [{ syllables: [{ text, start: lineStart, end: lineEnd, isBackground: false }], hasTrailingSpace: false }],
-          fullLineHighlight: true,
-        });
-        continue;
-      }
-
-      // Group syllables into words. This also handles non-syllable lyrics where
-      // a single span (or line fallback) contains full text with spaces.
-      const words: Word[] = [];
-      let currentWordSyllables: Syllable[] = [];
-      let fullLineHighlight = allSyllables.length <= 1;
-      
-      for (const rawSyllable of allSyllables) {
-        const tokens = tokenizeByWhitespace(rawSyllable.text);
-        const textTokens = tokens.filter((token) => !/^\s+$/.test(token));
-        if (textTokens.length > 1) fullLineHighlight = true;
-        const tokenCount = Math.max(textTokens.length, 1);
-        const safeStart = rawSyllable.start;
-        const safeEnd = rawSyllable.end > rawSyllable.start ? rawSyllable.end : rawSyllable.start + 0.25;
-        const slot = (safeEnd - safeStart) / tokenCount;
-        let textTokenIndex = 0;
-
-        for (const token of tokens) {
-          if (/^\s+$/.test(token)) {
-            if (currentWordSyllables.length > 0) {
-              words.push({ syllables: currentWordSyllables, hasTrailingSpace: true });
-              currentWordSyllables = [];
-            }
-            continue;
-          }
-
-          currentWordSyllables.push({
-            text: token,
-            start: safeStart + slot * textTokenIndex,
-            end: safeStart + slot * (textTokenIndex + 1),
-            isBackground: rawSyllable.isBackground,
-          });
-          textTokenIndex += 1;
-        }
-      }
-
-      if (currentWordSyllables.length > 0) {
-        words.push({ syllables: currentWordSyllables, hasTrailingSpace: false });
-      }
-
-      const lineText = allSyllables.map((s) => s.text).join('').trim();
-      result.push({ text: lineText, start: lineStart, end: lineEnd, words, fullLineHighlight });
-    }
-    return result;
-  }
-
-  function extractTtml(payload: any): string | null {
-    const attrs = payload?.data?.[0]?.attributes;
-    if (!attrs) return null;
-    if (typeof attrs.ttml === 'string') return attrs.ttml;
-    const localizations = attrs.ttmlLocalizations;
-    if (!localizations) return null;
-    if (typeof localizations === 'string') return localizations;
-    if (Array.isArray(localizations)) {
-      for (const loc of localizations) {
-        if (typeof loc === 'string') return loc;
-        if (typeof loc?.ttml === 'string') return loc.ttml;
-        if (typeof loc?.value === 'string') return loc.value;
-      }
-    }
-    if (typeof localizations === 'object') {
-      for (const key of Object.keys(localizations)) {
-        const val = localizations[key];
-        if (typeof val === 'string') return val;
-        if (typeof val?.ttml === 'string') return val.ttml;
-      }
-    }
-    return null;
   }
 
   async function loadLyricsForTrack(adamId: string) {
@@ -276,24 +93,8 @@
 <aside 
   class="relative h-full w-88 shrink-0 bg-zinc-900/80 backdrop-blur-3xl border-l border-white/5 flex flex-col overflow-hidden"
 >
-  <!-- Header / Tabs -->
   <div class="flex flex-col gap-6 p-10 pb-4 shrink-0">
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <button 
-          class="text-xs font-black uppercase tracking-[0.2em] transition-colors {playback.rightPaneMode === 'lyrics' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}"
-          onclick={() => playback.rightPaneMode = 'lyrics'}
-        >
-          Lyrics
-        </button>
-        <div class="w-1 h-1 rounded-full bg-zinc-800"></div>
-        <button 
-          class="text-xs font-black uppercase tracking-[0.2em] transition-colors {playback.rightPaneMode === 'queue' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}"
-          onclick={() => playback.rightPaneMode = 'queue'}
-        >
-          Playing Next
-        </button>
-      </div>
       <div class="flex items-center gap-3">
         {#if playback.currentTrackId}
           <button 
@@ -305,9 +106,6 @@
             />
           </button>
         {/if}
-        <button class="text-zinc-500 hover:text-white">
-          <Maximize2 class="size-4" />
-        </button>
       </div>
     </div>
   </div>
