@@ -39,4 +39,4 @@ tempfile = "3"
 
 [patch.crates-io]
 tauri = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
-cef-dll-sys = { path = "patches/cef-rs/sys" }
+cef-dll-sys = { path = "cef-rs/sys" }

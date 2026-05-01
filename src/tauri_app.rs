@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 use tokio::time::Duration;
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 use crate::discord::DiscordState;
+use crate::am_wrapper::WrapperHandle;
 
 use crate::sinks::playback::PlaybackControls;
 
@@ -62,15 +63,17 @@ struct AppState {
     runtime: Arc<Mutex<PlaybackRuntime>>,
     controls: Arc<Mutex<MediaControls>>,
     discord: Arc<DiscordState>,
+    wrapper: Arc<Mutex<Option<WrapperHandle>>>,
 }
 
 impl AppState {
-    fn new(app_handle: AppHandle<Cef>, controls: MediaControls) -> Self {
+    fn new(app_handle: AppHandle<Cef>, controls: MediaControls, wrapper: Option<WrapperHandle>) -> Self {
         Self {
             app_handle,
             runtime: Arc::new(Mutex::new(PlaybackRuntime::new())),
             controls: Arc::new(Mutex::new(controls)),
             discord: Arc::new(DiscordState::new()),
+            wrapper: Arc::new(Mutex::new(wrapper)),
         }
     }
 }
@@ -396,7 +399,21 @@ pub fn run() {
                 };
             }).map_err(|e| e.to_string())?;
 
-            app.manage(AppState::new(app.handle().clone(), controls));
+            let login = std::env::var("WRAPPER_LOGIN").unwrap_or_default();
+            let wrapper = if !login.is_empty() {
+                match crate::am_wrapper::spawn(&login) {
+                    Ok(handle) => Some(handle),
+                    Err(e) => {
+                        log::error!("Failed to spawn wrapper: {}", e);
+                        None
+                    }
+                }
+            } else {
+                log::warn!("WRAPPER_LOGIN not set, wrapper not started");
+                None
+            };
+
+            app.manage(AppState::new(app.handle().clone(), controls, wrapper));
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(

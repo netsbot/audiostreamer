@@ -1,0 +1,116 @@
+diff --git a/sys/Cargo.toml b/sys/Cargo.toml
+index eaf21a0..dfde512 100644
+--- a/sys/Cargo.toml
++++ b/sys/Cargo.toml
+@@ -3,7 +3,7 @@ name = "cef-dll-sys"
+ description = "cef-rs sys crate"
+ links = "cef_dll_wrapper"
+ 
+-version.workspace = true
++version = "146.4.1+146.0.9"
+ edition.workspace = true
+ license.workspace = true
+ authors.workspace = true
+diff --git a/sys/build.rs b/sys/build.rs
+index 1af91be..db6102d 100644
+--- a/sys/build.rs
++++ b/sys/build.rs
+@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
+     let package_version = env::var("CARGO_PKG_VERSION")?;
+     let cef_version = download_cef::default_version(&package_version);
+ 
+-    let check_archive = |path: &Path| -> anyhow::Result<()> {
++    let _check_archive = |path: &Path| -> anyhow::Result<()> {
+         download_cef::check_archive_json(&package_version, &path.to_string_lossy())?;
+         Ok(())
+     };
+@@ -54,11 +54,10 @@ fn main() -> anyhow::Result<()> {
+             "Using versioned CEF path from environment: {}",
+             resolved.display()
+         );
+-        check_archive(&resolved)?;
+         Ok(resolved)
+     };
+ 
+-    let download_to_versioned = |configured_path: &Path, reason: &str| -> anyhow::Result<PathBuf> {
++    let _download_to_versioned = |configured_path: &Path, reason: &str| -> anyhow::Result<PathBuf> {
+         let versioned_location = configured_path.join(&cef_version);
+         println!(
+             "{reason}, downloading archive to: {}",
+@@ -69,12 +68,10 @@ fn main() -> anyhow::Result<()> {
+         Ok(resolved)
+     };
+ 
+-    let cef_dir = if env::var("FLATPAK").is_ok() {
++    let mut cef_dir = if env::var("FLATPAK").is_ok() {
+         let cef_path = String::from("/usr/lib");
+         println!("Using CEF path from FLATPAK: {cef_path}");
+-        let cef_path = PathBuf::from(cef_path);
+-        check_archive(&cef_path)?;
+-        cef_path
++        PathBuf::from(cef_path)
+     } else if let Ok(cef_path) = env::var("CEF_PATH") {
+         let configured_path = PathBuf::from(cef_path);
+         if fs::exists(&configured_path)? {
+@@ -86,22 +83,53 @@ fn main() -> anyhow::Result<()> {
+                     "Using CEF path from environment: {}",
+                     configured_path.display()
+                 );
+-                match check_archive(&configured_path) {
+-                    Ok(()) => configured_path,
+-                    Err(error) => download_to_versioned(
+-                        &configured_path,
+-                        &format!("CEF_PATH is invalid ({error})"),
+-                    )?,
+-                }
++                configured_path
+             }
+         } else {
+-            download_to_versioned(&configured_path, "CEF_PATH does not exist")?
++            return Err(anyhow::anyhow!(
++                "CEF_PATH does not exist: {}",
++                configured_path.display()
++            ));
+         }
++    } else if os_arch.os == "linux" {
++        let cef_path = PathBuf::from("/usr/lib");
++        println!("Using system CEF path on Linux: {}", cef_path.display());
++        cef_path
+     } else {
+         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+         resolve_cef_dir(&out_dir)?
+     };
+ 
++    if os_arch.os == "linux" {
++        // System packages commonly install libcef.so in subdirectories like /usr/lib/cef.
++        let candidates = [
++            cef_dir.clone(),
++            cef_dir.join("cef"),
++            cef_dir.join("Release"),
++        ];
++        if let Some(found) = candidates
++            .iter()
++            .find(|dir| dir.join("libcef.so").exists())
++            .cloned()
++        {
++            if found != cef_dir {
++                println!(
++                    "Adjusted Linux CEF link dir from {} to {}",
++                    cef_dir.display(),
++                    found.display()
++                );
++            }
++            cef_dir = found;
++        } else {
++            return Err(anyhow::anyhow!(
++                "libcef.so not found under {} (also checked {}/cef and {}/Release)",
++                cef_dir.display(),
++                cef_dir.display(),
++                cef_dir.display()
++            ));
++        }
++    }
++
+     let cef_dir = cef_dir.to_string_lossy().into_owned();
+ 
+     // Re-run when the resolved CEF directory changes/deletes.

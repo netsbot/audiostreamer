@@ -3,6 +3,30 @@ use reqwest::Url;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UnixStream};
+use std::process::{Command, Child, Stdio};
+
+pub struct WrapperHandle {
+    pub child: Option<Child>,
+}
+
+impl Drop for WrapperHandle {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            log::info!("Killing wrapper process...");
+            let _ = child.kill();
+        }
+    }
+}
+
+pub fn spawn(login: &str) -> std::io::Result<WrapperHandle> {
+    let child = Command::new("./wrapper")
+        .args(["-L", login, "-H", "0.0.0.0"])
+        .current_dir("wrapper")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()?;
+    Ok(WrapperHandle { child: Some(child) })
+}
 
 use crate::error::{Result, StreamerError};
 
