@@ -1,0 +1,313 @@
+From 16cce4502bac38667cefaf3ca9085aa395a40baf Mon Sep 17 00:00:00 2001
+From: Nguyen Hoang Minh <hoangminhlvt@gmail.com>
+Date: Fri, 1 May 2026 11:54:34 +0800
+Subject: [PATCH] unix socket
+
+---
+ .idea/workspace.xml        | 143 +++++++++++++++++++++++++++++++++++++
+ CMakeLists.txt             |   3 +-
+ main.c                     |  87 ++++++++++++++++++++++
+ rootfs/system/bin/linker64 | Bin
+ 4 files changed, 232 insertions(+), 1 deletion(-)
+ create mode 100644 .idea/workspace.xml
+ mode change 100644 => 100755 rootfs/system/bin/linker64
+
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+new file mode 100644
+index 0000000..d7c25e1
+--- /dev/null
++++ b/.idea/workspace.xml
+@@ -0,0 +1,143 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="AutoImportSettings">
++    <option name="autoReloadType" value="SELECTIVE" />
++  </component>
++  <component name="BackendCodeEditorMiscSettings">
++    <option name="/Default/Environment/Hierarchy/GeneratedFilesCacheKey/Timestamp/@EntryValue" value="6" type="long" />
++    <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
++  </component>
++  <component name="CMakePresetLoader">{
++  &quot;useNewFormat&quot;: true
++}</component>
++  <component name="CMakeProjectFlavorService">
++    <option name="flavorId" value="CMakePlainProjectFlavor" />
++  </component>
++  <component name="CMakeReloadState">
++    <option name="reloaded" value="true" />
++  </component>
++  <component name="CMakeRunConfigurationManager">
++    <generated>
++      <config projectName="wrapper" targetName="cmdline_object" />
++      <config projectName="wrapper" targetName="main" />
++      <config projectName="wrapper" targetName="cjson_object" />
++      <config projectName="wrapper" targetName="wrapper" folderName="ExternalProjectTargets/wrapper" />
++      <config projectName="wrapper" targetName="handle_object" />
++    </generated>
++  </component>
++  <component name="CMakeSettings">
++    <configurations>
++      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
++    </configurations>
++  </component>
++  <component name="ChangeListManager">
++    <list default="true" id="051db10a-184a-4ea8-9159-9cc531ee1d74" name="Changes" comment="">
++      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/main.c" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/rootfs/system/bin/linker64" beforeDir="false" afterPath="$PROJECT_DIR$/rootfs/system/bin/linker64" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/wrapper.c" beforeDir="false" afterPath="$PROJECT_DIR$/wrapper.c" afterDir="false" />
++    </list>
++    <option name="SHOW_DIALOG" value="false" />
++    <option name="HIGHLIGHT_CONFLICTS" value="true" />
++    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
++    <option name="LAST_RESOLUTION" value="IGNORE" />
++  </component>
++  <component name="ClangdSettings">
++    <option name="formatViaClangd" value="false" />
++  </component>
++  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
++  <component name="Git.Settings">
++    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
++  </component>
++  <component name="MacroExpansionManager">
++    <option name="directoryName" value="YuihAsPZ" />
++  </component>
++  <component name="ProjectApplicationVersion">
++    <option name="ide" value="CLion" />
++    <option name="majorVersion" value="2026" />
++    <option name="minorVersion" value="1" />
++    <option name="productBranch" value="Classic" />
++  </component>
++  <component name="ProjectColorInfo">{
++  &quot;customColor&quot;: &quot;&quot;,
++  &quot;associatedIndex&quot;: 7
++}</component>
++  <component name="ProjectId" id="3C0hfnspIX4AgVeeuwnm7QQqZwB" />
++  <component name="ProjectViewState">
++    <option name="hideEmptyMiddlePackages" value="true" />
++    <option name="showLibraryContents" value="true" />
++  </component>
++  <component name="PropertiesComponent">{
++  &quot;keyToString&quot;: {
++    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.west.config.association.type.startup.service&quot;: &quot;true&quot;,
++    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
++    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
++    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
++    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
++    &quot;last_opened_file_path&quot;: &quot;/home/netsbit/projects/wrapper&quot;,
++    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
++    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
++    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.IDE.editor.colors.ColorSchemeFont&quot;,
++    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
++  }
++}</component>
++  <component name="RunManager" selected="CMake Application.main">
++    <configuration name="cjson_object" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="wrapper" TARGET_NAME="cjson_object" CONFIG_NAME="Debug">
++      <method v="2">
++        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
++      </method>
++    </configuration>
++    <configuration name="cmdline_object" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="wrapper" TARGET_NAME="cmdline_object" CONFIG_NAME="Debug">
++      <method v="2">
++        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
++      </method>
++    </configuration>
++    <configuration name="handle_object" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="wrapper" TARGET_NAME="handle_object" CONFIG_NAME="Debug">
++      <method v="2">
++        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
++      </method>
++    </configuration>
++    <configuration name="main" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="wrapper" TARGET_NAME="main" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="wrapper" RUN_TARGET_NAME="main">
++      <method v="2">
++        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
++      </method>
++    </configuration>
++    <configuration name="wrapper" type="CMakeRunConfiguration" factoryName="Application" folderName="ExternalProjectTargets/wrapper" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="wrapper" TARGET_NAME="wrapper" CONFIG_NAME="Debug">
++      <method v="2">
++        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
++      </method>
++    </configuration>
++    <list>
++      <item itemvalue="CMake Application.cjson_object" />
++      <item itemvalue="CMake Application.cmdline_object" />
++      <item itemvalue="CMake Application.handle_object" />
++      <item itemvalue="CMake Application.main" />
++      <item itemvalue="CMake Application.wrapper" />
++    </list>
++  </component>
++  <component name="RustProjectSettings">
++    <option name="toolchainHomeDirectory" value="/usr/bin" />
++  </component>
++  <component name="TaskManager">
++    <task active="true" id="Default" summary="Default task">
++      <changelist id="051db10a-184a-4ea8-9159-9cc531ee1d74" name="Changes" comment="" />
++      <created>1751556103696</created>
++      <option name="number" value="Default" />
++      <option name="presentableId" value="Default" />
++      <updated>1751556103696</updated>
++      <workItem from="1751556104771" duration="1223000" />
++      <workItem from="1775528502912" duration="2228000" />
++      <workItem from="1775536164699" duration="1006000" />
++    </task>
++    <servers />
++  </component>
++  <component name="TypeScriptGeneratedFilesManager">
++    <option name="version" value="3" />
++  </component>
++</project>
+\ No newline at end of file
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 777deaa..15395d9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ cmake_minimum_required(VERSION 3.25)
++set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ 
+ set(CMAKE_C_STANDARD 99)
+ set(CMAKE_CXX_STANDARD 11)
+@@ -48,13 +49,13 @@ add_library(cmdline_object OBJECT ${CMDLINE_SOURCE})
+ add_library(handle_object OBJECT ${HANDLE_SOURCE})
+ 
+ add_executable(main ${MAIN_SOURCE} $<TARGET_OBJECTS:cmdline_object> $<TARGET_OBJECTS:handle_object>)
++target_compile_definitions(main PRIVATE MyRelease)
+ 
+ target_include_directories(main PRIVATE ${cjson_SOURCE_DIR})
+ target_link_libraries(main PRIVATE cjson)
+ target_link_libraries(main PRIVATE dobby)
+ 
+ set_target_properties(main PROPERTIES 
+-    # COMPILE_DEFINITIONS "MyRelease"
+     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/rootfs/system/bin"
+ )
+ 
+diff --git a/main.c b/main.c
+index fbc7931..24e94f2 100644
+--- a/main.c
++++ b/main.c
+@@ -12,6 +12,7 @@
+ #include <netinet/in.h>
+ #include <sys/socket.h>
+ #include <sys/stat.h>
++#include <sys/un.h>
+ 
+ #include "import.h"
+ #include "cmdline.h"
+@@ -539,6 +540,35 @@ void handle(const int connfd) {
+     }
+ }
+ 
++static void handle_unix(const int connfd) {
++    void **const kdContext = getKdContext("0", "skd://itunes.apple.com/P000000000/s1/e1");
++    if (kdContext == NULL)
++        return;
++
++    while (1) {
++        uint32_t size;
++        if (!readfull(connfd, &size, sizeof(uint32_t)))
++            return;
++
++        if (size == 0)
++            return;
++
++        void *sample = malloc(size);
++        if (sample == NULL) {
++            perror("malloc");
++            return;
++        }
++        if (!readfull(connfd, sample, size)) {
++            free(sample);
++            return;
++        }
++
++        NfcRKVnxuKZy04KWbdFu71Ou(*kdContext, 5, sample, sample, size);
++        writefull(connfd, sample, size);
++        free(sample);
++    }
++}
++
+ extern uint8_t handle_cpp(int);
+ 
+ inline static int new_socket() {
+@@ -867,6 +897,59 @@ static inline void *new_socket_account(void *args)
+     }
+ }
+ 
++static inline void *new_socket_unix_decrypt(void *args) {
++    char *sock_path = strcat_b(args_info.base_dir_arg, "/decrypt.sock");
++    if (sock_path == NULL) {
++        perror("malloc");
++        return NULL;
++    }
++
++    unlink(sock_path);
++
++    const int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
++    if (fd == -1) {
++        perror("socket");
++        free(sock_path);
++        return NULL;
++    }
++
++    struct sockaddr_un addr;
++    memset(&addr, 0, sizeof(addr));
++    addr.sun_family = AF_UNIX;
++    strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
++    free(sock_path);
++
++    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
++        perror("bind");
++        close(fd);
++        return NULL;
++    }
++
++    if (listen(fd, 5) == -1) {
++        perror("listen");
++        close(fd);
++        return NULL;
++    }
++
++    fprintf(stderr, "[!] unix decrypt socket ready\n");
++
++    while (1) {
++        const int connfd = accept4(fd, NULL, NULL, SOCK_CLOEXEC);
++        if (connfd == -1) {
++            perror("accept4");
++            continue;
++        }
++
++        handle_unix(connfd);
++
++        if (close(connfd) == -1) {
++            perror("close");
++        }
++    }
++
++    return NULL;
++}
++
+ char* get_account_storefront_id(struct shared_ptr reqCtx) {
+     union std_string *region = malloc(sizeof(union std_string));
+     struct shared_ptr urlbag = {.obj = 0x0, .ctrl_blk = 0x0};
+@@ -1105,5 +1188,9 @@ int main(int argc, char *argv[]) {
+     pthread_create(&account_thread, NULL, &new_socket_account, NULL);
+     pthread_detach(account_thread);
+ 
++    pthread_t unix_decrypt_thread;
++    pthread_create(&unix_decrypt_thread, NULL, &new_socket_unix_decrypt, NULL);
++    pthread_detach(unix_decrypt_thread);
++
+     return new_socket();
+ }
+diff --git a/rootfs/system/bin/linker64 b/rootfs/system/bin/linker64
+old mode 100644
+new mode 100755
+-- 
+2.54.0
+

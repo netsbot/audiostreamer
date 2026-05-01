@@ -1,3 +1,7 @@
 [submodule "wrapper"]
 	path = wrapper
 	url = https://github.com/WorldObservationLog/wrapper.git
+
+[submodule "patches/cef-rs"]
+	path = patches/cef-rs
+	url = https://github.com/tauri-apps/cef-rs.git

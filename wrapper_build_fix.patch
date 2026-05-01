@@ -1,0 +1,35 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 777deaa..1826ebe 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ cmake_minimum_required(VERSION 3.25)
++set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ 
+ set(CMAKE_C_STANDARD 99)
+ set(CMAKE_CXX_STANDARD 11)
+@@ -54,7 +55,7 @@ target_link_libraries(main PRIVATE cjson)
+ target_link_libraries(main PRIVATE dobby)
+ 
+ set_target_properties(main PROPERTIES 
+-    # COMPILE_DEFINITIONS "MyRelease"
++    COMPILE_DEFINITIONS "MyRelease"
+     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/rootfs/system/bin"
+ )
+ 
+@@ -73,9 +74,11 @@ target_link_libraries(main PRIVATE
+     ${MEDIAPLATFORM_LIB}
+ )
+ 
++target_link_libraries(main PRIVATE ${LOG_SHARED_LIB})
++
+ get_target_property(MAIN_COMPILE_DEFINITIONS main COMPILE_DEFINITIONS)
+ if(NOT "MyRelease" IN_LIST MAIN_COMPILE_DEFINITIONS)
+-    target_link_libraries(main PRIVATE ${LOG_SHARED_LIB} ${CURL_SHARED_LIB})
++    target_link_libraries(main PRIVATE ${CURL_SHARED_LIB})
+     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -g")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -g")
+ else()
+diff --git a/rootfs/system/bin/linker64 b/rootfs/system/bin/linker64
+old mode 100644
+new mode 100755
