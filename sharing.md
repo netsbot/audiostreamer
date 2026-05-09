@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/a3094679-cb92-417e-a3c9-da3d44649d22
-
 # Building a Lossless Apple Music Client for Linux
 For Linux users who care about audio quality, Apple Music has long felt like a compromise. You can use the web app or Electron wrappers, but they are limited by MusicKit.JS to 256 kbps AAC streams. You can also run the Android app in Waydroid, but it does not feel native and takes a lot of space. When I realized no existing option satisfied my needs, I decided to build one myself.
 
@@ -340,8 +336,7 @@ Because some Apple Music features are undocumented, populating the UI required e
 
 ## Demo
 
-![Apple Music demo video](https://github.com/user-attachments/assets/99525367-a1e7-47c8-888c-5d720355d6d2)
-
+[![Apple Music demo video](https://github.com/user-attachments/assets/22c551d1-68e8-4b65-b194-0b7c2f28be48)](https://www.youtube.com/watch?v=fGSuEajdgDI)
 ## Limitations & Roadmap
 
 ### Current Limitations
