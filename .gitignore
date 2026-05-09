@@ -66,3 +66,9 @@ TODO.md
 .env
 .env.*
 !.env.example
+
+# Stitch
+**/stitch/
+stitch-screens.json
+
+musickit.js
