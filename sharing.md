@@ -336,7 +336,7 @@ Because some Apple Music features are undocumented, populating the UI required e
 
 ## Demo
 
-![Lossless Apple Music Demo](media/demo.mkv)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/fGSuEajdgDI?si=sq0BEg79qoJBj_js" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## Limitations & Roadmap
 
@@ -350,26 +350,3 @@ Because some Apple Music features are undocumented, populating the UI required e
 - [ ] **Sign-in / Sign-out UI**: Add a native interface for managing user authentication without manual token caching.
 - [ ] **Full Codec Support**: Implement and test all available codecs (AAC, HE-AAC, EAC3, etc.) and allow users to select their preferred quality/bitrate in the settings.
 - [ ] **Flatpak Distribution**: Package the entire stack into a single, easy-to-install bundle.
-
-<!--
-Mermaid Source for Pipeline Diagram:
-```mermaid
-sequenceDiagram
-    participant Client as Rust Client
-    participant Wrapper as C Wrapper
-    participant Apple as Apple Servers
-    participant CPAL as Audio Hardware
-    
-    Client->>Wrapper: Request m3u8 URL (Socket 20020)
-    Wrapper->>Apple: Fetch auth & m3u8
-    Apple-->>Wrapper: m3u8 URL
-    Wrapper-->>Client: m3u8 URL
-    Client->>Apple: Download MAP & Segments
-    Client->>Client: Parse segments (gpac)
-    Client->>Wrapper: Send key setup & ALAC samples (Unix socket)
-    Wrapper->>Wrapper: Decrypt DRM
-    Wrapper-->>Client: Unencrypted ALAC samples
-    Client->>Client: Decode to PCM (ffmpeg)
-    Client->>CPAL: Output PCM Audio
-```
--->
