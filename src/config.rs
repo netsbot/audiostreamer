@@ -176,6 +176,7 @@ mod tests {
             input: Some("other.wav".to_string()),
             output: Some(CliOutputMode::Playback),
             chunk_size: Some(4096),
+            adam_id: None,
         };
 
         let cfg = AppConfig::from_cli(cli).expect("config from cli");
@@ -191,6 +192,7 @@ mod tests {
             input: None,
             output: Some(CliOutputMode::Noop),
             chunk_size: Some(1024),
+            adam_id: None,
         };
 
         let err = AppConfig::from_cli(cli).expect_err("must fail without input");
