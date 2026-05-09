@@ -336,7 +336,7 @@ Because some Apple Music features are undocumented, populating the UI required e
 
 ## Demo
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/fGSuEajdgDI?si=sq0BEg79qoJBj_js" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+![Apple Music demo video](media/demo.mp4)
 
 ## Limitations & Roadmap
 
