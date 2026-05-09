@@ -4,7 +4,7 @@ For Linux users who care about audio quality, Apple Music has long felt like a c
 > **Disclaimer:** This project is for personal use and educational research only. It relies on reverse-engineered internals and is entirely unsupported. No redistribution of Apple's binaries or copyrighted content is involved.
 
 ## Beyond 256 kbps
-The Android version of Apple Music supports full ALAC lossless streaming, so I started with a simple hypothesis: Android uses the Linux kernel but a completely different userspace (Bionic libc, not glibc), so porting a native Android library to a standard Linux distro requires bridging that gap. I only wanted the decryption library that handles DRM and the lossless stream. My first goal was to strip away everything else and run that library as a standalone background process.
+The Android version of Apple Music supports full ALAC lossless streaming, so I started with a simple hypothesis: Android uses the Linux kernel but a completely different userspace (Bionic libc, not glibc, and Binder IPC), so making an Android library working on Linux requires a few adjustments. I only wanted the decryption library that handles DRM and the lossless stream. My first goal was to strip away everything else and run that library as a standalone background process.
 
 ## Reverse Engineering
 
@@ -159,11 +159,13 @@ Java AuthenticateFlow.run()
 
 At this point I had a solid picture of the authentication pipeline. But the real problem was still unsolved: even if I knew *how* it authenticated, I still needed to actually *invoke* it — which meant initializing the library, setting up all the JNI scaffolding, and managing the entire Android runtime environment. That was going to take months.
 
-I was searching GitHub for prior art on `libstoreservicescore` — not expecting much — when I stumbled across [`WorldObservationLog/wrapper`](https://github.com/WorldObservationLog/wrapper). Someone had already done the hard part: a C program that bootstraps a minimal Android environment inside a `chroot`, loads the library, and exposes decryption over a Unix socket. It was exactly what I needed. The only catch was that it required root.
+I was scrolling GitHub when I stumbled across [`WorldObservationLog/wrapper`](https://github.com/WorldObservationLog/wrapper). Someone had already done the hard part: a C program that bootstraps a minimal Android environment inside a `chroot`, loads the library, and exposes decryption over a Unix socket. It was exactly what I needed. The only catch was that it required root.
 
 ### Rootless Container Isolation
 
-The C wrapper that loads `libmediaplatform` is maintained in a separate repository. To use it without root privileges, I contributed a patch that runs it inside a user namespace, mapping the real UID/GID to root inside the namespace. The key changes were: set up the user namespace before `chroot`, write the UID/GID maps, and treat `mknod` failures as non-fatal since device node creation is generally not permitted in rootless namespaces.
+The C wrapper is maintained in a separate repository. To use it without root privileges, I created a patch that runs it inside a user namespace, mapping the real UID/GID to root inside the namespace. The key changes were: set up the user namespace before `chroot`, write the UID/GID maps, and treat `mknod` failures as non-fatal since device node creation is generally not permitted in rootless namespaces.
+
+PS: The project has since implemented rootless support using user namespaces.
 
 ```diff
 +    gid_t gid = getgid();
@@ -316,7 +318,7 @@ stream.read_exact(output.as_mut_slice()).await?;
 
 ### Decoding and Bit-Perfect Playback
 
-At that point, I had an unencrypted ALAC sample. To play it, I needed to decode ALAC to raw PCM audio. I could feed this into a library like `ffmpeg` or `symphonia`. I chose `ffmpeg` via the `ac-ffmpeg` Rust crate because it is highly stable, and most Linux systems already include `libavcodec`, which keeps the binary size down. 
+At that point, I had an unencrypted ALAC sample. To play it, I needed to decode ALAC to raw PCM audio. I could feed this into a library like `ffmpeg` or `symphonia`. I chose `ffmpeg` via the `ffmpeg-next` Rust crate because it is highly stable, and most Linux systems already include `libavcodec`, which keeps the binary size down. 
 
 The `ffmpeg` decoder takes the ALAC packets and outputs raw 24-bit or 16-bit PCM frames. 
 
@@ -332,9 +334,9 @@ For UI layout and styling iteration, I used **Stitch by Google** to rapidly gene
 
 Because some Apple Music features are undocumented, populating the UI required extracting additional API calls to fetch metadata (like album art, lyrics, and artist info). I did this by opening the Apple Music web app, inspecting the browser's Network tab, and analyzing the requests and returned JSON payloads. I then replicated those requests in Rust and mapped the JSON structures directly into the Svelte components.
 
-In practice, playback now starts in a streaming path instead of a download path. The client asks the wrapper for an m3u8 URL, picks the highest-quality stream, downloads only the needed segments, decrypts each sample, decodes ALAC to PCM, and sends it to CPAL.
+## Demo
 
-The important result is simple: no root, no full-song wait, and no browser wrapper in front of lossless audio. The remaining work is polish, not architecture.
+![Lossless Apple Music Demo](media/demo.mkv)
 
 ## Limitations & Roadmap
 
