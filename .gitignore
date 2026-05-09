@@ -1,5 +1,68 @@
-/target
-node_modules
-ui/node_modules
-ui/dist
-src-tauri/target
+# Rust
+/target/
+**/*.rs.bk
+
+# Node.js / Dependencies
+node_modules/
+.npm/
+.yarn/
+*.tgz
+package-lock.json
+yarn.lock
+bun.lockb
+
+# UI
+ui/node_modules/
+ui/dist/
+ui/.svelte-kit/
+
+# Tauri
+src-tauri/target/
+**/gen/
+/examples/**/src-tauri/gen/
+/bench/**/src-tauri/gen/
+
+# Wrapper / Android NDK
+wrapper/build/
+wrapper/android-ndk-r23b/
+wrapper/*.zip
+wrapper/wrapper
+wrapper/rootfs/system/bin/main
+wrapper/wrapper-rootless
+
+# CEF
+cef-rs/target/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime*
+/.vs
+
+# OS
+.DS_Store
+.Thumbs.db
+
+# Logs & Runtime
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Assets & Temp
+streaming_example_test_video.mp4
+TODO.md
+.aider*
+
+# Config
+.env
+.env.*
+!.env.example

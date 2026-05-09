@@ -2,7 +2,12 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn apply_patches(manifest_dir: &PathBuf, target_dir: &str, patches: &[&str]) {
-    let marker = manifest_dir.join("target").join(format!(".{}-patched", target_dir));
+    let marker = manifest_dir
+        .join("target")
+        .join(format!(".{}-patched", target_dir));
+
+    println!("cargo:warning={:?}", marker);
+
     if marker.exists() {
         return;
     }
@@ -10,6 +15,9 @@ fn apply_patches(manifest_dir: &PathBuf, target_dir: &str, patches: &[&str]) {
     let dir = manifest_dir.join(target_dir);
     for patch_name in patches {
         let patch_path = manifest_dir.join("patches").join(patch_name);
+
+        println!("cargo:warning={:?}", patch_path);
+
         if !patch_path.exists() {
             continue;
         }
@@ -36,7 +44,10 @@ fn apply_patches(manifest_dir: &PathBuf, target_dir: &str, patches: &[&str]) {
             .unwrap_or_else(|e| panic!("git apply {} failed: {}", patch_name, e));
 
         if !status.success() {
-            println!("cargo:warning=Patch {} applied with rejects (partial)", patch_name);
+            println!(
+                "cargo:warning=Patch {} applied with rejects (partial)",
+                patch_name
+            );
         }
     }
 
@@ -77,7 +88,10 @@ fn build_wrapper() {
     if !ndk_dir.exists() {
         println!("cargo:warning=NDK missing. Downloading...");
         let status = Command::new("curl")
-            .args(["-fLO", "https://dl.google.com/android/repository/android-ndk-r23b-linux.zip"])
+            .args([
+                "-fLO",
+                "https://dl.google.com/android/repository/android-ndk-r23b-linux.zip",
+            ])
             .current_dir(&wrapper_dir)
             .status()
             .expect("curl failed");
@@ -107,6 +121,7 @@ fn build_wrapper() {
     }
 
     let cmake_status = Command::new("cmake")
+        .arg("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
         .arg("-Wno-dev")
         .arg(wrapper_dir.to_str().unwrap())
         .current_dir(&build_dir)
@@ -140,7 +155,10 @@ fn main() {
             std::path::PathBuf::from(&base).join("Release"),
         ];
 
-        if let Some(dir) = candidates.into_iter().find(|p| p.join("libcef.so").exists()) {
+        if let Some(dir) = candidates
+            .into_iter()
+            .find(|p| p.join("libcef.so").exists())
+        {
             println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
         }
     }
