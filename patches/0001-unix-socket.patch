@@ -188,7 +188,7 @@ index 777deaa..15395d9 100644
  )
  
 diff --git a/main.c b/main.c
-index fbc7931..24e94f2 100644
+index fbc7931..04d6f8a 100644
 --- a/main.c
 +++ b/main.c
 @@ -12,6 +12,7 @@
@@ -199,43 +199,65 @@ index fbc7931..24e94f2 100644
  
  #include "import.h"
  #include "cmdline.h"
-@@ -539,6 +540,35 @@ void handle(const int connfd) {
+@@ -539,6 +540,57 @@ void handle(const int connfd) {
      }
  }
  
 +static void handle_unix(const int connfd) {
-+    void **const kdContext = getKdContext("0", "skd://itunes.apple.com/P000000000/s1/e1");
-+    if (kdContext == NULL)
-+        return;
-+
 +    while (1) {
-+        uint32_t size;
-+        if (!readfull(connfd, &size, sizeof(uint32_t)))
++        uint8_t adamSize;
++        if (!readfull(connfd, &adamSize, sizeof(uint8_t)))
++            return;
++        if (adamSize <= 0)
 +            return;
 +
-+        if (size == 0)
++        char adam[adamSize + 1];
++        if (!readfull(connfd, adam, adamSize))
++            return;
++        adam[adamSize] = '\0';
++
++        uint8_t uri_size;
++        if (!readfull(connfd, &uri_size, sizeof(uint8_t)))
 +            return;
 +
-+        void *sample = malloc(size);
-+        if (sample == NULL) {
-+            perror("malloc");
++        char uri[uri_size + 1];
++        if (!readfull(connfd, uri, uri_size))
 +            return;
-+        }
-+        if (!readfull(connfd, sample, size)) {
++        uri[uri_size] = '\0';
++
++        void **const kdContext = getKdContext(adam, uri);
++        if (kdContext == NULL)
++            return;
++
++        while (1) {
++            uint32_t size;
++            if (!readfull(connfd, &size, sizeof(uint32_t)))
++                return;
++
++            if (size == 0)
++                break;
++
++            void *sample = malloc(size);
++            if (sample == NULL) {
++                perror("malloc");
++                return;
++            }
++            if (!readfull(connfd, sample, size)) {
++                free(sample);
++                return;
++            }
++
++            NfcRKVnxuKZy04KWbdFu71Ou(*kdContext, 5, sample, sample, size);
++            writefull(connfd, sample, size);
 +            free(sample);
-+            return;
 +        }
-+
-+        NfcRKVnxuKZy04KWbdFu71Ou(*kdContext, 5, sample, sample, size);
-+        writefull(connfd, sample, size);
-+        free(sample);
 +    }
 +}
 +
  extern uint8_t handle_cpp(int);
  
  inline static int new_socket() {
-@@ -867,6 +897,59 @@ static inline void *new_socket_account(void *args)
+@@ -867,6 +919,59 @@ static inline void *new_socket_account(void *args)
      }
  }
  
@@ -295,7 +317,7 @@ index fbc7931..24e94f2 100644
  char* get_account_storefront_id(struct shared_ptr reqCtx) {
      union std_string *region = malloc(sizeof(union std_string));
      struct shared_ptr urlbag = {.obj = 0x0, .ctrl_blk = 0x0};
-@@ -1105,5 +1188,9 @@ int main(int argc, char *argv[]) {
+@@ -1105,5 +1210,9 @@ int main(int argc, char *argv[]) {
      pthread_create(&account_thread, NULL, &new_socket_account, NULL);
      pthread_detach(account_thread);
  

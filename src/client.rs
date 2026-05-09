@@ -7,6 +7,7 @@ use tokio::sync::Semaphore;
 use tokio::sync::RwLock;
 
 use crate::error::{Result, StreamerError};
+use crate::disk_cache::DiskCache;
 
 const BYTE_RANGE_CACHE_MAX_ENTRIES: usize = 2048;
 const BYTE_RANGE_CACHE_MAX_BYTES: usize = 256 * 1024 * 1024;
@@ -73,6 +74,16 @@ fn byte_range_cache() -> &'static RwLock<ByteRangeCache> {
     CACHE.get_or_init(|| RwLock::new(ByteRangeCache::default()))
 }
 
+pub fn disk_cache() -> &'static RwLock<Option<DiskCache>> {
+    static CACHE: OnceLock<RwLock<Option<DiskCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(None))
+}
+
+pub async fn init_disk_cache(cache: DiskCache) {
+    let mut w = disk_cache().write().await;
+    *w = Some(cache);
+}
+
 impl AppleMusicClient {
     pub async fn new() -> Result<Self> {
         let token = Self::fetch_token().await?;
@@ -119,6 +130,18 @@ impl AppleMusicClient {
             }
         }
 
+        {
+            let cache_lock = disk_cache().read().await;
+            if let Some(disk) = cache_lock.as_ref() {
+                if let Some(cached) = disk.get(url, range_start, range_end).await {
+                    log::debug!("disk cache hit: {}", cache_key);
+                    let mut mem_cache = byte_range_cache().write().await;
+                    mem_cache.insert(cache_key.clone(), cached.clone());
+                    return Ok(cached.as_ref().clone());
+                }
+            }
+        }
+
         let _permit = self.request_lock.acquire().await?;
         let resp = self
             .client
@@ -137,7 +160,15 @@ impl AppleMusicClient {
 
         {
             let mut cache = byte_range_cache().write().await;
-            cache.insert(cache_key, Arc::new(bytes.clone()));
+            cache.insert(cache_key.clone(), Arc::new(bytes.clone()));
+        }
+
+        {
+            let cache_lock = disk_cache().read().await;
+            if let Some(disk) = cache_lock.as_ref() {
+                let arc_bytes = Arc::new(bytes.clone());
+                disk.insert(url, range_start, range_end, arc_bytes).await;
+            }
         }
 
         Ok(bytes)

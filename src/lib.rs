@@ -11,3 +11,4 @@ pub mod gpac;
 pub mod gpac_ffi;
 pub mod discord;
 pub mod tauri_app;
+pub mod disk_cache;

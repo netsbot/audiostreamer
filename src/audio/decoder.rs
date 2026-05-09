@@ -80,6 +80,10 @@ impl AlacDecoder {
 
         Ok(output.unwrap_or_else(|| SampleBuffer::I16(Vec::new())))
     }
+
+    pub fn flush(&mut self) {
+        self.decoder.flush();
+    }
 }
 
 fn decode_frame_native(frame: &frame::Audio) -> Result<SampleBuffer> {

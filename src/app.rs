@@ -1,6 +1,7 @@
 use crate::audio::sink::AudioSink;
 use crate::audio::source::AudioSource;
 use crate::audio::stream::pump_stream;
+use crate::am_wrapper;
 use crate::client::AppleMusicClient;
 use crate::error::Result;
 use crate::sinks::playback::{PlaybackControls, PlaybackSink};
@@ -38,6 +39,7 @@ pub async fn execute_playback(
         output_channels,
         active_sink,
         0.0,
+        None,
     )
     .await
 }
@@ -50,6 +52,7 @@ pub async fn execute_playback_at(
     output_channels: Arc<AtomicU64>,
     active_sink: Arc<Mutex<Option<PlaybackControls>>>,
     start_time: f64,
+    existing_controls: Option<PlaybackControls>,
 ) -> Result<()> {
     let client = AppleMusicClient::new().await.map_err(|e| {
         crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}"))
@@ -60,11 +63,20 @@ pub async fn execute_playback_at(
         source.seek(start_time).await?;
     }
 
-    let mut sink = PlaybackSink::new_with_metrics(
-        samples_played.clone(),
-        output_sample_rate,
-        output_channels,
-    );
+    let mut sink = if let Some(ref controls) = existing_controls {
+        PlaybackSink::new_reusing(
+            controls,
+            samples_played.clone(),
+            output_sample_rate,
+            output_channels,
+        )
+    } else {
+        PlaybackSink::new_with_metrics(
+            samples_played.clone(),
+            output_sample_rate,
+            output_channels,
+        )
+    };
     let controls = sink.controls();
     
     // Register the sink for instant control
@@ -96,6 +108,8 @@ pub async fn run() -> Result<()> {
     let cli = CliArgs::parse();
 
     if let Some(adam_id) = cli.adam_id {
+        am_wrapper::warm_up().await?;
+
         let paused = Arc::new(AtomicBool::new(false));
         let samples_played = Arc::new(AtomicU64::new(0));
         let output_sample_rate = Arc::new(AtomicU64::new(44_100));
@@ -125,7 +139,8 @@ pub async fn preload_song(adam_id: String) -> Result<()> {
     })?;
 
     // Constructing Song warms playlist/init caches and triggers segment prefetch.
-    let _song = Song::new(&adam_id, client).await?;
+    let song = Song::new(&adam_id, client).await?;
+    song.predownload_all_segments();
     Ok(())
 }
 

@@ -11,10 +11,12 @@ use m3u8_rs::ByteRange;
 use m3u8_rs::MediaPlaylist;
 use reqwest::Url;
 use std::collections::{HashMap, VecDeque};
+use std::io::ErrorKind;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use tokio::net::UnixStream;
 use tokio::sync::RwLock;
+use tokio::time::{sleep, timeout, Duration, Instant};
 
 #[derive(Debug, Clone)]
 struct CachedSongBootstrap {
@@ -26,6 +28,7 @@ struct CachedSongBootstrap {
 
 const DECODED_SEGMENT_CACHE_MAX_ENTRIES: usize = 512;
 const DECODED_SEGMENT_CACHE_MAX_BYTES: usize = 512 * 1024 * 1024;
+const PLAYBACK_RETRY_ATTEMPTS: usize = 3;
 
 #[derive(Debug, Default)]
 struct DecodedSegmentCache {
@@ -101,7 +104,142 @@ fn song_bootstrap_cache() -> &'static RwLock<HashMap<String, CachedSongBootstrap
     CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
-async fn load_song_bootstrap(adam_id: &str, client: &AppleMusicClient) -> Result<CachedSongBootstrap> {
+fn is_wrapper_ipc_retryable(error: &StreamerError) -> bool {
+    matches!(
+        error,
+        StreamerError::Io(io_error)
+            if matches!(
+                io_error.kind(),
+                ErrorKind::BrokenPipe
+                    | ErrorKind::ConnectionRefused
+                    | ErrorKind::ConnectionReset
+                    | ErrorKind::NotConnected
+                    | ErrorKind::TimedOut
+                    | ErrorKind::UnexpectedEof
+            )
+    )
+}
+
+async fn download_segment_with_retry(
+    client: AppleMusicClient,
+    segment_url: String,
+    byte_range: ByteRange,
+) -> Result<Vec<u8>> {
+    let mut last_error: Option<StreamerError> = None;
+
+    for attempt in 0..PLAYBACK_RETRY_ATTEMPTS {
+        match client
+            .download_byte_range(segment_url.as_str(), byte_range.clone())
+            .await
+        {
+            Ok(bytes) => return Ok(bytes),
+            Err(error) => {
+                log::warn!(
+                    "[Song] segment download failed for {} attempt {}/{}: {}",
+                    segment_url,
+                    attempt + 1,
+                    PLAYBACK_RETRY_ATTEMPTS,
+                    error
+                );
+                last_error = Some(error);
+                if attempt + 1 < PLAYBACK_RETRY_ATTEMPTS {
+                    sleep(Duration::from_millis(150 * (attempt as u64 + 1))).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        StreamerError::Message(format!("failed to download segment from {segment_url}"))
+    }))
+}
+
+async fn read_new_samples_with_retry(
+    gpac_iso_file: &mut gpac::IsoFile,
+    next_sample_number: &mut u32,
+    track: u32,
+) -> Result<Vec<gpac::TrackSample>> {
+    let mut last_error: Option<StreamerError> = None;
+
+    for attempt in 0..PLAYBACK_RETRY_ATTEMPTS {
+        match gpac_iso_file.read_new_samples(track, next_sample_number) {
+            Ok(samples) => return Ok(samples),
+            Err(error) => {
+                log::warn!(
+                    "[Song] sample refresh failed for track {} attempt {}/{}: {}",
+                    track,
+                    attempt + 1,
+                    PLAYBACK_RETRY_ATTEMPTS,
+                    error
+                );
+                last_error = Some(error);
+                if attempt + 1 < PLAYBACK_RETRY_ATTEMPTS {
+                    sleep(Duration::from_millis(100 * (attempt as u64 + 1))).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        StreamerError::Message(format!("failed to refresh samples for track {track}"))
+    }))
+}
+
+async fn wait_for_decrypt_socket(sock_path: &str, wait_seconds: u64) -> std::result::Result<UnixStream, std::io::Error> {
+    let deadline = Instant::now() + Duration::from_secs(wait_seconds);
+
+    let mut last_error = match timeout(Duration::from_millis(200), UnixStream::connect(sock_path)).await {
+        Ok(Ok(stream)) => return Ok(stream),
+        Ok(Err(error)) => error,
+        Err(_) => std::io::Error::new(
+            ErrorKind::TimedOut,
+            "timed out waiting for decrypt unix socket",
+        ),
+    };
+
+    loop {
+        if Instant::now() >= deadline {
+            break;
+        }
+
+        sleep(Duration::from_millis(100)).await;
+
+        match timeout(Duration::from_millis(200), UnixStream::connect(sock_path)).await {
+            Ok(Ok(stream)) => return Ok(stream),
+            Ok(Err(error)) => last_error = error,
+            Err(_) => {
+                last_error = std::io::Error::new(
+                    ErrorKind::TimedOut,
+                    "timed out waiting for decrypt unix socket",
+                );
+            }
+        }
+    }
+
+    Err(last_error)
+}
+
+async fn connect_decrypt_socket(sock_path: &str) -> Result<UnixStream> {
+    am_wrapper::ensure_wrapper_running().await?;
+
+    match wait_for_decrypt_socket(sock_path, 10).await {
+        Ok(stream) => Ok(stream),
+        Err(first_error) => {
+            log::warn!(
+                "decrypt socket not ready in time ({first_error}); restarting wrapper once"
+            );
+            am_wrapper::restart_wrapper().await?;
+            wait_for_decrypt_socket(sock_path, 10)
+                .await
+                .map_err(StreamerError::from)
+        }
+    }
+}
+
+async fn load_song_bootstrap(
+    adam_id: &str,
+    client: &AppleMusicClient,
+) -> Result<CachedSongBootstrap> {
     {
         let cache = song_bootstrap_cache().read().await;
         if let Some(cached) = cache.get(adam_id) {
@@ -116,11 +254,12 @@ async fn load_song_bootstrap(adam_id: &str, client: &AppleMusicClient) -> Result
         .map_err(|e| {
             StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}"))
         })?;
-    let (media_playlist, codec_id) = utils::extract_media_playlist(client, &m3u8_url, utils::Codec::Alac)
-        .await
-        .map_err(|e| {
-            StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}"))
-        })?;
+    let (media_playlist, codec_id) =
+        utils::extract_media_playlist(client, &m3u8_url, utils::Codec::Alac)
+            .await
+            .map_err(|e| {
+                StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}"))
+            })?;
 
     let init_section = media_playlist
         .segments
@@ -184,7 +323,7 @@ pub struct Song {
 }
 
 impl Song {
-    const PREFETCH_WINDOW_SEGMENTS: usize = 4;
+    const PREFETCH_WINDOW_SEGMENTS: usize = 8;
 
     pub async fn new(adam_id: &str, client: AppleMusicClient) -> Result<Self> {
         let bootstrap = load_song_bootstrap(adam_id, &client).await?;
@@ -269,11 +408,18 @@ impl Song {
             .join(segment_uri.as_str())
             .map_err(|e| StreamerError::Message(format!("invalid segment URL: {e}")))?;
 
-        println!("[Song] downloading segment {}/{} ({} bytes)", self.current_segment + 1, self.media_playlist.segments.len(), byte_range.length);
-        let segment_data = self
-            .client
-            .download_byte_range(segment_url.as_str(), byte_range)
-            .await?;
+        println!(
+            "[Song] downloading segment {}/{} ({} bytes)",
+            self.current_segment + 1,
+            self.media_playlist.segments.len(),
+            byte_range.length
+        );
+        let segment_data = download_segment_with_retry(
+            self.client.clone(),
+            segment_url.to_string(),
+            byte_range,
+        )
+        .await?;
 
         self.raw_mp4
             .write_all(segment_data.as_slice())
@@ -283,13 +429,11 @@ impl Song {
 
         self.predownload_upcoming_segments(Self::PREFETCH_WINDOW_SEGMENTS);
 
-        let samples = self
-            .gpac_iso_file
-            .read_new_samples(track, &mut self.next_sample_number)?;
+        let samples = read_new_samples_with_retry(&mut self.gpac_iso_file, &mut self.next_sample_number, track).await?;
         Ok((samples, segment_index))
     }
 
-    fn predownload_upcoming_segments(&self, window: usize) {
+    pub fn predownload_upcoming_segments(&self, window: usize) {
         if window == 0 {
             return;
         }
@@ -315,6 +459,11 @@ impl Song {
                 .prefetch_byte_range(segment_url.to_string(), byte_range);
         }
     }
+
+    pub fn predownload_all_segments(&self) {
+        self.predownload_upcoming_segments(self.media_playlist.segments.len());
+    }
+
 
     fn apply_pending_seek_offset(&mut self, samples: &mut Vec<gpac::TrackSample>) {
         let Some(mut remaining_seconds) = self.pending_seek_offset_seconds else {
@@ -351,7 +500,8 @@ impl Song {
 #[async_trait]
 impl AudioSource for Song {
     async fn next_chunk(&mut self, _max_samples: usize) -> Result<Option<AudioChunk>> {
-        let (mut new_samples, mut segment_index) = self.append_next_segment_and_collect_samples(1).await?;
+        let (mut new_samples, mut segment_index) =
+            self.append_next_segment_and_collect_samples(1).await?;
         let mut trimmed_by_seek = false;
 
         loop {
@@ -386,11 +536,14 @@ impl AudioSource for Song {
             }
         }
 
-        let mut stream = UnixStream::connect(
-            "wrapper/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
-        )
-        .await
-        .map_err(|e| StreamerError::Message(format!("failed to connect decrypt socket: {e}")))?;
+        let sock_path = format!(
+            "{}/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
+            env!("WRAPPER_DIR")
+        );
+        let mut stream = connect_decrypt_socket(&sock_path).await.map_err(|e| {
+            StreamerError::Message(format!("failed to connect decrypt socket: {e}"))
+        })?;
+
         let mut current_state_key = String::new();
         let mut sample_buffer = Vec::new();
         let mut pcm_samples: Option<SampleBuffer> = None;
@@ -403,16 +556,61 @@ impl AudioSource for Song {
                 ))
             })?;
 
-            if *key != current_state_key {
-                am_wrapper::setup_context(&mut stream, &mut current_state_key, &self.adam_id, key)
+            let mut decrypt_error: Option<StreamerError> = None;
+            for attempt in 0..PLAYBACK_RETRY_ATTEMPTS {
+                if *key != current_state_key {
+                    if let Err(error) = am_wrapper::setup_context(
+                        &mut stream,
+                        &mut current_state_key,
+                        &self.adam_id,
+                        key,
+                    )
                     .await
-                    .map_err(|e| {
-                        StreamerError::Message(format!("failed to set decrypt context: {e}"))
-                    })?;
-            }
+                    {
+                        decrypt_error = Some(StreamerError::Message(format!(
+                            "failed to set decrypt context: {error}"
+                        )));
+                    } else {
+                        decrypt_error = None;
+                    }
+                }
 
-            sample_buffer.clear();
-            am_wrapper::decrypt_sample(&mut stream, &sample.data, &mut sample_buffer).await?;
+                if decrypt_error.is_none() {
+                    sample_buffer.clear();
+                    match am_wrapper::decrypt_sample(&mut stream, &sample.data, &mut sample_buffer)
+                        .await
+                    {
+                        Ok(()) => break,
+                        Err(error) => {
+                            decrypt_error = Some(error);
+                        }
+                    }
+                }
+
+                if let Some(error) = decrypt_error.take() {
+                    log::warn!(
+                        "[Song] decrypt attempt {}/{} failed for {}: {}",
+                        attempt + 1,
+                        PLAYBACK_RETRY_ATTEMPTS,
+                        self.adam_id,
+                        error
+                    );
+                    if attempt + 1 < PLAYBACK_RETRY_ATTEMPTS {
+                        if is_wrapper_ipc_retryable(&error) {
+                            am_wrapper::restart_wrapper().await?;
+                        }
+                        stream = connect_decrypt_socket(&sock_path).await.map_err(|e| {
+                            StreamerError::Message(format!(
+                                "failed to reconnect decrypt socket: {e}"
+                            ))
+                        })?;
+                        current_state_key.clear();
+                        sleep(Duration::from_millis(100 * (attempt as u64 + 1))).await;
+                        continue;
+                    }
+                    return Err(error);
+                }
+            }
 
             let mut decoded = self.decoder.decode_sample(&sample_buffer)?;
             if let Some(samples) = pcm_samples.as_mut() {
@@ -442,7 +640,7 @@ impl AudioSource for Song {
         let mut accumulated_time = 0.0f64;
         let mut target_segment = 0usize;
         let mut segment_start_time = 0.0f64;
-        
+
         for (i, segment) in self.media_playlist.segments.iter().enumerate() {
             let segment_duration = segment.duration as f64;
             if accumulated_time + segment_duration > target_seconds {
@@ -454,7 +652,7 @@ impl AudioSource for Song {
             target_segment = i;
             segment_start_time = accumulated_time;
         }
-        
+
         let in_segment_offset = (target_seconds - segment_start_time).max(0.0);
         log::info!(
             "[Song] seeking to {}s -> segment {}/{} offset={}s",
@@ -463,21 +661,24 @@ impl AudioSource for Song {
             self.media_playlist.segments.len(),
             in_segment_offset
         );
-        
+
         // Reset playback state
         self.current_segment = target_segment;
         self.pending_seek_offset_seconds = Some(in_segment_offset);
         self.predownload_upcoming_segments(Self::PREFETCH_WINDOW_SEGMENTS);
-        
+
         // Note: next_sample_number is tricky because we're jumping segments.
         // In fMP4, sample numbers are often global or relative to the moof.
-        // Since we are using GPAC's read_new_samples, resetting next_sample_number to 1 
-        // and letting it find "new" samples in the newly appended segments might work 
+        // Since we are using GPAC's read_new_samples, resetting next_sample_number to 1
+        // and letting it find "new" samples in the newly appended segments might work
         // if we are starting a "fresh" file, but we are appending.
-        
-        // Actually, the most robust way to seek in this architecture is to stay with the current file 
+
+        // Actually, the most robust way to seek in this architecture is to stay with the current file
         // but just jump the segment download.
-        
+
+        // Flush decoder to clear stale buffers
+        self.decoder.flush();
+
         Ok(())
     }
 

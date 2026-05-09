@@ -1,13 +1,12 @@
+use crate::discord::DiscordState;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Cef, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
-use crate::discord::DiscordState;
-use crate::am_wrapper::WrapperHandle;
 
 use crate::sinks::playback::PlaybackControls;
 
@@ -34,6 +33,7 @@ struct PlaybackRuntime {
     playback_generation: u64,
     paused: Arc<AtomicBool>,
     frames_played: Arc<AtomicU64>,
+    resume_emitted: Arc<AtomicBool>,
     output_sample_rate: Arc<AtomicU64>,
     output_channels: Arc<AtomicU64>,
     active_sink: Arc<Mutex<Option<PlaybackControls>>>,
@@ -49,6 +49,7 @@ impl PlaybackRuntime {
             playback_generation: 0,
             paused: Arc::new(AtomicBool::new(false)),
             frames_played: Arc::new(AtomicU64::new(0)),
+            resume_emitted: Arc::new(AtomicBool::new(false)),
             output_sample_rate: Arc::new(AtomicU64::new(44_100)),
             output_channels: Arc::new(AtomicU64::new(2)),
             active_sink: Arc::new(Mutex::new(None)),
@@ -63,17 +64,15 @@ struct AppState {
     runtime: Arc<Mutex<PlaybackRuntime>>,
     controls: Arc<Mutex<MediaControls>>,
     discord: Arc<DiscordState>,
-    wrapper: Arc<Mutex<Option<WrapperHandle>>>,
 }
 
 impl AppState {
-    fn new(app_handle: AppHandle<Cef>, controls: MediaControls, wrapper: Option<WrapperHandle>) -> Self {
+    fn new(app_handle: AppHandle<Cef>, controls: MediaControls) -> Self {
         Self {
             app_handle,
             runtime: Arc::new(Mutex::new(PlaybackRuntime::new())),
             controls: Arc::new(Mutex::new(controls)),
             discord: Arc::new(DiscordState::new()),
-            wrapper: Arc::new(Mutex::new(wrapper)),
         }
     }
 }
@@ -94,8 +93,9 @@ async fn start_playback(
     adam_id: String,
     metadata: PlaySongMetadata,
     start_time: f64,
+    existing_controls: Option<PlaybackControls>,
 ) -> Result<(), String> {
-    let (paused, frames_played, output_sample_rate, output_channels, active_sink, generation) = {
+    let (paused, frames_played, resume_emitted, output_sample_rate, output_channels, active_sink, generation) = {
         let mut runtime = runtime.lock().await;
 
         if let Some(handle) = runtime.playback_task.take() {
@@ -108,15 +108,26 @@ async fn start_playback(
         runtime.adam_id = Some(adam_id.clone());
         runtime.metadata = Some(metadata.clone());
         runtime.playback_generation = runtime.playback_generation.wrapping_add(1);
-        runtime.paused = Arc::new(AtomicBool::new(false));
-        runtime.frames_played = Arc::new(AtomicU64::new(0));
-        runtime.output_sample_rate = Arc::new(AtomicU64::new(44_100));
-        runtime.output_channels = Arc::new(AtomicU64::new(2));
-        runtime.active_sink = Arc::new(Mutex::new(None));
+
+        if existing_controls.is_some() {
+            // Seek: reuse same Arcs, just reset values
+            runtime.paused.store(false, Ordering::SeqCst);
+            runtime.frames_played.store(0, Ordering::SeqCst);
+            runtime.resume_emitted.store(false, Ordering::SeqCst);
+        } else {
+            // Fresh play: new Arcs
+            runtime.paused = Arc::new(AtomicBool::new(false));
+            runtime.frames_played = Arc::new(AtomicU64::new(0));
+            runtime.resume_emitted = Arc::new(AtomicBool::new(false));
+            runtime.output_sample_rate = Arc::new(AtomicU64::new(44_100));
+            runtime.output_channels = Arc::new(AtomicU64::new(2));
+            runtime.active_sink = Arc::new(Mutex::new(None));
+        }
 
         (
             runtime.paused.clone(),
             runtime.frames_played.clone(),
+            runtime.resume_emitted.clone(),
             runtime.output_sample_rate.clone(),
             runtime.output_channels.clone(),
             runtime.active_sink.clone(),
@@ -158,6 +169,7 @@ async fn start_playback(
             output_channels,
             active_sink,
             start_time,
+            existing_controls,
         )
         .await;
 
@@ -176,7 +188,8 @@ async fn start_playback(
                     paused: true,
                     ended: true,
                 };
-                if let Err(error) = app_handle_for_playback.emit("playback-progress", final_payload) {
+                if let Err(error) = app_handle_for_playback.emit("playback-progress", final_payload)
+                {
                     log::warn!("failed to emit final playback-progress: {}", error);
                 }
             }
@@ -206,6 +219,15 @@ async fn start_playback(
 
             if !still_current {
                 break;
+            }
+
+            // Emit playback-resumed once when first audio frames actually flow
+            if frames > 0 && !resume_emitted.load(Ordering::SeqCst) {
+                resume_emitted.store(true, Ordering::SeqCst);
+                let current_time = start_time + (frames as f64 / sample_rate as f64);
+                if let Err(error) = app_handle_for_progress.emit("playback-resumed", current_time) {
+                    log::warn!("failed to emit playback-resumed: {}", error);
+                }
             }
 
             let local_seconds = start_time + (frames as f64 / sample_rate as f64);
@@ -255,8 +277,8 @@ async fn get_lyrics_payload(adam_id: String) -> Result<String, String> {
         crate::am_wrapper::DEFAULT_LYRICS_REGION,
         crate::am_wrapper::DEFAULT_LYRICS_LANGUAGE,
     )
-        .await
-        .map_err(|e| e.to_string())
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -267,16 +289,14 @@ async fn preload_song(adam_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn play_song(
-    state: State<'_, AppState>,
-    request: PlaySongRequest,
-) -> Result<(), String> {
+async fn play_song(state: State<'_, AppState>, request: PlaySongRequest) -> Result<(), String> {
     start_playback(
         state.runtime.clone(),
         state.app_handle.clone(),
         request.adam_id,
         request.metadata,
         0.0,
+        None,
     )
     .await
 }
@@ -309,7 +329,11 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
         });
 
         paused.store(true, Ordering::SeqCst);
-        let _ = state.controls.lock().await.set_playback(MediaPlayback::Paused { progress: None });
+        let _ = state
+            .controls
+            .lock()
+            .await
+            .set_playback(MediaPlayback::Paused { progress: None });
         Ok(false)
     } else {
         if let Some(control) = control {
@@ -324,12 +348,18 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
                 let metadata = metadata.clone();
                 let current_time = runtime.frames_played.load(Ordering::SeqCst) as f64
                     / runtime.output_sample_rate.load(Ordering::SeqCst).max(1) as f64;
-                discord.update_playback(&metadata, current_time, false).await;
+                discord
+                    .update_playback(&metadata, current_time, false)
+                    .await;
             }
         });
 
         paused.store(false, Ordering::SeqCst);
-        let _ = state.controls.lock().await.set_playback(MediaPlayback::Playing { progress: None });
+        let _ = state
+            .controls
+            .lock()
+            .await
+            .set_playback(MediaPlayback::Playing { progress: None });
         Ok(true)
     }
 }
@@ -337,8 +367,8 @@ async fn toggle_playback(state: State<'_, AppState>) -> Result<bool, String> {
 #[tauri::command]
 async fn seek(state: State<'_, AppState>, seconds: f64) -> Result<(), String> {
     let runtime = state.runtime.clone();
-    let (adam_id, metadata) = {
-        let mut runtime = runtime.lock().await;
+    let (adam_id, metadata, existing_controls) = {
+        let runtime = runtime.lock().await;
 
         let adam_id = runtime
             .adam_id
@@ -349,23 +379,26 @@ async fn seek(state: State<'_, AppState>, seconds: f64) -> Result<(), String> {
             .clone()
             .ok_or_else(|| "no active playback metadata".to_string())?;
 
-        if let Some(handle) = runtime.playback_task.take() {
-            handle.abort();
-        }
-        if let Some(handle) = runtime.progress_task.take() {
-            handle.abort();
+        // Grab existing CPAL controls before aborting task
+        let controls = runtime.active_sink.lock().await.clone();
+
+        // Clear stale audio from buffer
+        if let Some(ref c) = controls {
+            c.clear_buffer();
         }
 
-        runtime.paused.store(false, Ordering::SeqCst);
-        runtime.frames_played.store(0, Ordering::SeqCst);
-        runtime.output_sample_rate.store(44_100, Ordering::SeqCst);
-        runtime.output_channels.store(2, Ordering::SeqCst);
-        runtime.active_sink = Arc::new(Mutex::new(None));
-
-        (adam_id, metadata)
+        (adam_id, metadata, controls)
     };
 
-    start_playback(runtime, state.app_handle.clone(), adam_id, metadata, seconds).await
+    start_playback(
+        runtime,
+        state.app_handle.clone(),
+        adam_id,
+        metadata,
+        seconds,
+        existing_controls,
+    )
+    .await
 }
 
 pub fn run() {
@@ -387,33 +420,39 @@ pub fn run() {
 
             let mut controls = MediaControls::new(config).map_err(|e| e.to_string())?;
             let handle = app.handle().clone();
-            controls.attach(move |event| {
-                let _ = match event {
-                    MediaControlEvent::Play | MediaControlEvent::Pause | MediaControlEvent::Toggle => {
-                        handle.emit("mpris-event", "toggle")
-                    }
-                    MediaControlEvent::Next => handle.emit("mpris-event", "next"),
-                    MediaControlEvent::Previous => handle.emit("mpris-event", "previous"),
-                    MediaControlEvent::Stop => handle.emit("mpris-event", "stop"),
-                    _ => Ok(()),
-                };
-            }).map_err(|e| e.to_string())?;
+            controls
+                .attach(move |event| {
+                    let _ = match event {
+                        MediaControlEvent::Play
+                        | MediaControlEvent::Pause
+                        | MediaControlEvent::Toggle => handle.emit("mpris-event", "toggle"),
+                        MediaControlEvent::Next => handle.emit("mpris-event", "next"),
+                        MediaControlEvent::Previous => handle.emit("mpris-event", "previous"),
+                        MediaControlEvent::Stop => handle.emit("mpris-event", "stop"),
+                        _ => Ok(()),
+                    };
+                })
+                .map_err(|e| e.to_string())?;
 
-            let login = std::env::var("WRAPPER_LOGIN").unwrap_or_default();
-            let wrapper = if !login.is_empty() {
-                match crate::am_wrapper::spawn(&login) {
-                    Ok(handle) => Some(handle),
-                    Err(e) => {
-                        log::error!("Failed to spawn wrapper: {}", e);
-                        None
+            app.manage(AppState::new(app.handle().clone(), controls));
+
+            let handle_clone = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tauri::Manager;
+                if let Ok(data_dir) = handle_clone.path().app_data_dir() {
+                    let cache_dir = data_dir.join("segment_cache");
+                    if let Ok(disk_cache) = crate::disk_cache::DiskCache::new(cache_dir, 2_000_000_000).await {
+                        crate::client::init_disk_cache(disk_cache).await;
+                        log::info!("Initialized segment disk cache (max 2 GB)");
                     }
                 }
-            } else {
-                log::warn!("WRAPPER_LOGIN not set, wrapper not started");
-                None
-            };
 
-            app.manage(AppState::new(app.handle().clone(), controls, wrapper));
+                if let Err(error) = crate::am_wrapper::warm_up().await {
+                    log::warn!("wrapper warmup failed: {}", error);
+                } else {
+                    log::info!("wrapper warmup complete");
+                }
+            });
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(

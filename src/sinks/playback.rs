@@ -14,6 +14,7 @@ unsafe impl Send for SendStream {}
 #[derive(Clone)]
 pub struct PlaybackControls {
     stream: Arc<Mutex<Option<SendStream>>>,
+    buffer: Arc<Mutex<Option<PlaybackBuffer>>>,
 }
 
 impl PlaybackControls {
@@ -35,6 +36,12 @@ impl PlaybackControls {
                 .map_err(|e| StreamerError::Message(format!("Failed to resume stream: {}", e)))?;
         }
         Ok(())
+    }
+
+    pub fn clear_buffer(&self) {
+        if let Ok(mut buffer) = self.buffer.lock() {
+            *buffer = None;
+        }
     }
 }
 
@@ -192,8 +199,29 @@ impl PlaybackSink {
             frames_played,
             output_sample_rate,
             output_channels,
-            device_sample_rate: 44100, // Default to something sane
+            device_sample_rate: 44100,
             device_channels: 2,
+        }
+    }
+
+    /// Build a sink that reuses an existing CPAL stream + buffer from a previous
+    /// PlaybackControls. The CPAL device stream won't be re-initialized.
+    pub fn new_reusing(
+        controls: &PlaybackControls,
+        frames_played: Arc<AtomicU64>,
+        output_sample_rate: Arc<AtomicU64>,
+        output_channels: Arc<AtomicU64>,
+    ) -> Self {
+        let sr = output_sample_rate.load(Ordering::SeqCst) as u32;
+        let ch = output_channels.load(Ordering::SeqCst) as u16;
+        Self {
+            stream: controls.stream.clone(),
+            buffer: controls.buffer.clone(),
+            frames_played,
+            output_sample_rate,
+            output_channels,
+            device_sample_rate: if sr > 0 { sr } else { 44100 },
+            device_channels: if ch > 0 { ch } else { 2 },
         }
     }
 
@@ -290,6 +318,7 @@ impl PlaybackSink {
     pub fn controls(&self) -> PlaybackControls {
         PlaybackControls {
             stream: self.stream.clone(),
+            buffer: self.buffer.clone(),
         }
     }
 
@@ -371,6 +400,7 @@ impl AudioSink for PlaybackSink {
         }
         Ok(())
     }
+
 
     fn description(&self) -> &str {
         "cpal-playback-sink"

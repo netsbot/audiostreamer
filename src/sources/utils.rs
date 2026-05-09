@@ -75,17 +75,20 @@ pub async fn extract_media_playlist(
         _ => todo!(),
     };
 
-
     let mut selected_codec_id = None;
     let mut selected_stream_url = None;
+    let mut max_bandwidth = 0;
 
     for variant in &master_playlist.variants {
         let audio = variant.audio.clone().unwrap_or_default();
         if codec_matches(&audio, codec) {
-            selected_codec_id = Some(audio);
-            let stream_url = master_url.join(&variant.uri).unwrap().to_string();
-            selected_stream_url = Some(stream_url);
-            break;
+            let bw = variant.bandwidth;
+            if bw >= max_bandwidth {
+                max_bandwidth = bw;
+                selected_codec_id = Some(audio);
+                let stream_url = master_url.join(&variant.uri).unwrap().to_string();
+                selected_stream_url = Some(stream_url);
+            }
         }
     }
 
@@ -163,7 +166,13 @@ fn is_valid_playlist_uri_line(line: &str) -> bool {
 
 fn is_malformed_song_enhance_marker(line: &str) -> bool {
     let mut parts = line.split_whitespace();
-    match (parts.next(), parts.next(), parts.next(), parts.next(), parts.next()) {
+    match (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) {
         (Some(first), Some(second), Some(third), Some(fourth), None) => {
             first.starts_with("#P")
                 && first[2..].chars().all(|c| c.is_ascii_digit())
@@ -249,4 +258,3 @@ pub fn collect_key_uris(playlist: &m3u8_rs::MediaPlaylist) -> Vec<String> {
 pub fn segment_key_uri(segment: &m3u8_rs::MediaSegment) -> Option<&str> {
     segment.key.as_ref().and_then(|key| key.uri.as_deref())
 }
-

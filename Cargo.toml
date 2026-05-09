@@ -31,6 +31,8 @@ tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 souvlaki = "0.7"
 discord-rich-presence = "1.1.0"
 urlencoding = "2.1"
+sha2 = "0.11.0"
+serde_json = "1.0.149"
 
 
 
@@ -40,3 +42,4 @@ tempfile = "3"
 [patch.crates-io]
 tauri = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
 cef-dll-sys = { path = "cef-rs/sys" }
+cef = { path = "cef-rs/cef" }

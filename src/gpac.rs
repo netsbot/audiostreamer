@@ -37,6 +37,10 @@ fn check(e: GF_Err) -> Result<()> {
     }
 }
 
+fn is_incomplete_file_err(e: GF_Err) -> bool {
+    e == 1 // GF_ISOM_INCOMPLETE_FILE
+}
+
 #[derive(Debug, Clone)]
 pub struct TrackSample {
     pub sample_number: u32,
@@ -91,9 +95,7 @@ impl IsoFile {
         let mut missing = 0u64;
         let err =
             unsafe { gf_isom_open_progressive(c_path.as_ptr(), 0, 0, 0, &mut ptr, &mut missing) };
-        if err != GF_OK && err != 1
-        /* GF_ISOM_INCOMPLETE_FILE */
-        {
+        if err != GF_OK && !is_incomplete_file_err(err) {
             return Err(StreamerError::Message(format!(
                 "gf_isom_open_progressive failed for {path}: {}",
                 unsafe { CStr::from_ptr(gf_error_to_string(err)).to_string_lossy() }
@@ -115,7 +117,12 @@ impl IsoFile {
             return Err(StreamerError::Message("IsoFile is closed".to_string()));
         }
         let mut missing = 0u64;
-        check(unsafe { gf_isom_refresh_fragmented(self.ptr, &mut missing, std::ptr::null()) })
+        let err = unsafe { gf_isom_refresh_fragmented(self.ptr, &mut missing, std::ptr::null()) };
+        if err == GF_OK || is_incomplete_file_err(err) {
+            Ok(())
+        } else {
+            Err(gpac_err(err))
+        }
     }
 
     /// Create a new file for writing (WRITE mode — moov appended at end).

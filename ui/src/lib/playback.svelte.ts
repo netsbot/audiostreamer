@@ -48,11 +48,15 @@ class PlaybackState {
 
     // -- High-precision interpolation --
     smoothTime = $state(0);
+    isSeeking = $state(false);
+    private seekFreezeTime = 0;
+    private seekTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private lastSyncRealTime = 0;
     private lastSyncPlaybackTime = 0;
     private rafId: number | null = null;
 
     private autoAdvanceInFlight = false;
+    private midpointPreloadFired = false;
 
     constructor() {
         this.startInterpolationLoop();
@@ -60,10 +64,20 @@ class PlaybackState {
 
     private startInterpolationLoop() {
         const update = () => {
-            if (this.isPlaying) {
+            if (this.isSeeking) {
+                // Freeze at the seek target — don't interpolate until backend confirms position
+                this.smoothTime = this.seekFreezeTime;
+            } else if (this.isPlaying) {
                 const now = performance.now();
                 const delta = (now - this.lastSyncRealTime) / 1000;
                 this.smoothTime = Math.max(0, Math.min(this.totalTime, this.lastSyncPlaybackTime + delta));
+
+                // Midpoint preloading
+                if (!this.midpointPreloadFired && this.totalTime > 0 && this.smoothTime >= this.totalTime * 0.5) {
+                    this.midpointPreloadFired = true;
+                    this.preloadTrackAtOffset(1);
+                    this.preloadTrackAtOffset(2);
+                }
             } else {
                 this.smoothTime = this.currentTime;
             }
@@ -76,18 +90,33 @@ class PlaybackState {
         this.currentTime = playbackTime;
         this.lastSyncPlaybackTime = playbackTime;
         this.lastSyncRealTime = performance.now();
-        this.smoothTime = playbackTime;
+        if (!this.isSeeking) {
+            this.smoothTime = playbackTime;
+        }
+    }
+
+    private clearSeekFreeze() {
+        this.isSeeking = false;
+        if (this.seekTimeoutId !== null) {
+            clearTimeout(this.seekTimeoutId);
+            this.seekTimeoutId = null;
+        }
     }
 
     private preloadNextTrack() {
-        const nextIndex = this.activeQueueIndex + 1;
+        this.preloadTrackAtOffset(1);
+    }
+
+    private preloadTrackAtOffset(offset: number) {
+        const nextIndex = this.activeQueueIndex + offset;
         if (nextIndex < 0 || nextIndex >= this.activeQueue.length) {
             return;
         }
 
         const next = this.activeQueue[nextIndex];
+        console.log(`Preloading track ahead +${offset}:`, next.metadata.title);
         invoke('preload_song', { adamId: next.id }).catch((error) => {
-            console.debug('Failed to preload next track:', error);
+            console.debug(`Failed to preload track +${offset}:`, error);
         });
     }
 
@@ -172,13 +201,27 @@ class PlaybackState {
                 const paused = payload.paused ?? false;
                 const ended = payload.ended ?? false;
 
-                this.syncTime(current);
-                if (total > 0) this.totalTime = total;
-                this.isPlaying = !paused;
+                // While seeking: freeze everything, ignore progress updates entirely
+                if (this.isSeeking) {
+                    this.currentTime = current;
+                    // isPlaying intentionally NOT updated — stays frozen until playback-resumed
+                } else {
+                    this.syncTime(current);
+                    if (total > 0) this.totalTime = total;
+                    this.isPlaying = !paused;
+                }
 
                 if (ended) {
                     void this.playNextInQueue();
                 }
+            }),
+
+            listen('playback-resumed', (event: any) => {
+                // Fires once when first audio frames actually flow after seek — safe to unfreeze
+                const confirmedTime = event.payload as number;
+                this.clearSeekFreeze();
+                this.syncTime(confirmedTime);
+                this.isPlaying = true;
             }),
 
             listen('mpris-event', async (event: any) => {
@@ -220,6 +263,7 @@ class PlaybackState {
 
             this.currentTrack = metadata;
             this.currentTrackId = id;
+            this.midpointPreloadFired = false;
             this.isPlaying = true;
             this.totalTime = (metadata.duration_ms || 0) / 1000;
             this.syncTime(0);
@@ -277,11 +321,23 @@ class PlaybackState {
     }
 
     async seekTo(seconds: number) {
-        this.syncTime(seconds);
+        // Cancel any previous seek timeout
+        if (this.seekTimeoutId !== null) {
+            clearTimeout(this.seekTimeoutId);
+        }
+        this.isSeeking = true;
+        this.seekFreezeTime = seconds;
+        this.smoothTime = seconds;
+        this.currentTime = seconds;
+        this.lastSyncPlaybackTime = seconds;
+        this.lastSyncRealTime = performance.now();
+        // Safety: force-unfreeze after 5s in case backend never reports matching position
+        this.seekTimeoutId = setTimeout(() => this.clearSeekFreeze(), 5000);
         try {
             await invoke('seek', { seconds });
         } catch (e) {
             console.error("Failed to seek:", e);
+            this.clearSeekFreeze();
         }
     }
 
