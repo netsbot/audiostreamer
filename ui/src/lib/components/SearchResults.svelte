@@ -12,8 +12,8 @@
 
   let { 
     searchResults, 
-    openAlbum = (id: string) => {}, 
-    openPlaylist = (id: string, type: string = "playlists") => {},
+    openAlbum = (id: string, type: string = "albums", href: string = "") => {},
+    openPlaylist = (id: string, type: string = "playlists", href: string = "") => {},
     clearSearch = () => {},
     getArtworkUrl = (artwork: any, size?: number) => artwork?.url 
   } = $props();
@@ -95,9 +95,9 @@
               if (item.type === 'songs') {
                 playSong(item, searchResults.songs || []);
               } else if (item.type === 'playlists' || item.type === 'library-playlists') {
-                openPlaylist(item.id, item.type);
+                openPlaylist(item.id, item.type, item.href);
               } else {
-                openAlbum(item.id);
+                openAlbum(item.id, item.type, item.href);
               }
             }}
           >
@@ -181,7 +181,7 @@
           <button
             type="button"
             class="{shelfItemWidth} group cursor-pointer text-left snap-start"
-            onclick={() => openAlbum(album.id)}
+            onclick={() => openAlbum(album.id, album.type, album.href)}
           >
             <div
               class="aspect-square rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all"
@@ -273,7 +273,7 @@
           <button
             type="button"
             class="{shelfItemWidth} group cursor-pointer text-left snap-start"
-            onclick={() => openPlaylist(playlist.id, playlist.type || 'playlists')}
+            onclick={() => openPlaylist(playlist.id, playlist.type || 'playlists', playlist.href)}
           >
             <div class="aspect-square rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl bg-zinc-900 group-hover:border-white/20 transition-all">
               <img

@@ -3,11 +3,11 @@ use reqwest::header;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::OnceLock;
-use tokio::sync::Semaphore;
 use tokio::sync::RwLock;
+use tokio::sync::Semaphore;
 
-use crate::error::{Result, StreamerError};
 use crate::disk_cache::DiskCache;
+use crate::error::Result;
 
 const BYTE_RANGE_CACHE_MAX_ENTRIES: usize = 2048;
 const BYTE_RANGE_CACHE_MAX_BYTES: usize = 256 * 1024 * 1024;
@@ -86,7 +86,7 @@ pub async fn init_disk_cache(cache: DiskCache) {
 
 impl AppleMusicClient {
     pub async fn new() -> Result<Self> {
-        let token = Self::fetch_token().await?;
+        let token = crate::am_wrapper::get_token().await?;
         let builder = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
             .default_headers({
@@ -148,11 +148,7 @@ impl AppleMusicClient {
             .get(url)
             .header(
                 header::RANGE,
-                format!(
-                    "bytes={}-{}",
-                    range_start,
-                    range_end
-                ),
+                format!("bytes={}-{}", range_start, range_end),
             )
             .send()
             .await?;
@@ -184,45 +180,7 @@ impl AppleMusicClient {
     }
 
     pub async fn songs(&self, query: &str) -> Result<String> {
-        let resp = self.client.get(format!("https://api.music.apple.com/v1/catalog/us/search?term={query}&limit=25&types=songs,albums,artists")).send().await?;
+        let resp = self.client.get(format!("https://api.music.apple.com/v1/catalog/vn/search?term={query}&limit=25&types=songs,albums,artists")).send().await?;
         Ok(resp.text().await?)
-    }
-
-    pub async fn fetch_token() -> Result<String> {
-        static CACHE: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
-        
-        CACHE.get_or_try_init(|| async {
-            log::info!("Fetching new Apple Music developer token...");
-            let client = reqwest::Client::builder()
-                .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-                .build()?;
-            let resp = client
-                .get("https://music.apple.com")
-                .send()
-                .await?
-                .text()
-                .await?;
-            let index_js_uri = regex::Regex::new(r"/assets/index~[^/]+\.js")?
-                .find(&resp)
-                .ok_or_else(|| {
-                    StreamerError::Message("unable to locate Apple Music index bundle".to_string())
-                })?
-                .as_str()
-                .to_string();
-            let js_resp = client
-                .get(format!("https://music.apple.com{index_js_uri}"))
-                .send()
-                .await?
-                .text()
-                .await?;
-            let token = regex::Regex::new(r#"eyJh([^\"]*)"#)?
-                .find(&js_resp)
-                .ok_or_else(|| {
-                    StreamerError::Message("unable to extract Apple Music bearer token".to_string())
-                })?
-                .as_str()
-                .to_string();
-            Ok(token)
-        }).await.cloned()
     }
 }

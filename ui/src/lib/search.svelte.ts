@@ -33,7 +33,7 @@ class SearchState {
     this.isSearching = true;
     try {
       const response = await fetchAppleMusic(
-        `https://api.music.apple.com/v1/catalog/us/search?term=${encodeURIComponent(this.query)}&types=songs,albums,artists,playlists,music-videos,stations&limit=25&with=topResults`,
+        `https://api.music.apple.com/v1/catalog/vn/search?term=${encodeURIComponent(this.query)}&types=songs,albums,artists,playlists,music-videos,stations&limit=25&with=topResults`,
         {
           method: "GET",
           headers: {
@@ -55,7 +55,7 @@ class SearchState {
         musicVideos: res["music-videos"]?.data || [],
         stations: res.stations?.data || [],
       };
-      
+
       navigation.activeView = "search";
     } catch (error) {
       console.error("Search failed:", error);

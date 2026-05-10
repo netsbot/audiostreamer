@@ -3,7 +3,7 @@ use reqwest::Url;
 use std::future::Future;
 use std::process::{Child, Command, Stdio};
 use std::sync::OnceLock;
-use tokio::fs::File;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UnixStream};
 use tokio::sync::Mutex;
@@ -180,30 +180,37 @@ pub async fn get_m3u8(adam_id: String) -> Result<String> {
 }
 
 pub async fn get_token() -> Result<String> {
-    crate::client::AppleMusicClient::fetch_token().await
+    Ok(get_account_info().await?.dev_token)
+}
+
+#[derive(serde::Deserialize, Clone)]
+pub struct AccountInfo {
+    pub music_token: String,
+    pub dev_token: String,
+    pub storefront_id: String,
+}
+
+pub async fn get_account_info() -> Result<AccountInfo> {
+    static CACHE: tokio::sync::OnceCell<AccountInfo> = tokio::sync::OnceCell::const_new();
+
+    run_with_wrapper_retry("get_account_info", || async {
+        CACHE
+            .get_or_try_init(|| async {
+                log::info!("Loading account info from wrapper socket...");
+                let info = reqwest::get("http://localhost:30020")
+                    .await?
+                    .json::<AccountInfo>()
+                    .await?;
+                Ok(info)
+            })
+            .await
+            .cloned()
+    })
+    .await
 }
 
 pub async fn get_music_token() -> Result<String> {
-    static CACHE: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
-
-    run_with_wrapper_retry("get_music_token", || async {
-        CACHE
-            .get_or_try_init(|| async {
-            log::info!("Loading Music User Token from disk...");
-            let mut buf = String::new();
-            let token_path = format!(
-                "{}/rootfs/data/data/com.apple.android.music/files/MUSIC_TOKEN",
-                env!("WRAPPER_DIR")
-            );
-            let mut file = File::open(&token_path).await?;
-
-            file.read_to_string(&mut buf).await?;
-            Ok(buf.trim().to_string())
-        })
-        .await
-        .cloned()
-    })
-    .await
+    Ok(get_account_info().await?.music_token)
 }
 
 pub async fn get_lyrics(adam_id: &str, region: &str, language: &str) -> Result<String> {

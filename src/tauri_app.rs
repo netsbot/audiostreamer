@@ -258,7 +258,7 @@ async fn run_stream() -> Result<(), String> {
 
 #[tauri::command]
 async fn get_apple_music_token() -> Result<String, String> {
-    crate::client::AppleMusicClient::fetch_token()
+    crate::am_wrapper::get_token()
         .await
         .map_err(|e| e.to_string())
 }

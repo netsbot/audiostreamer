@@ -26,12 +26,12 @@
       .replace(/SH\?/g, "SC?");
   }
 
-  function openAlbum(id: string) {
-    navigation.openAlbum(id);
+  function openAlbum(id: string, type: string = 'albums', href: string = '') {
+    navigation.openAlbum(id, type, href);
   }
 
-  function openPlaylist(id: string, type = "playlists") {
-    navigation.openPlaylist(id, type);
+  function openPlaylist(id: string, type = "playlists", href = "") {
+    navigation.openPlaylist(id, type, href);
   }
 </script>
 
@@ -56,7 +56,7 @@
       >
         <ArrowLeft class="size-4" /> Back
       </button>
-      <AlbumView albumId={navigation.selectedAlbumId} albumType={navigation.selectedAlbumType} />
+      <AlbumView albumId={navigation.selectedAlbumId} albumType={navigation.selectedAlbumType} albumHref={navigation.selectedAlbumHref} />
     </div>
   {/if}
 
@@ -68,7 +68,7 @@
       >
         <ArrowLeft class="size-4" /> Back
       </button>
-      <PlaylistView playlistId={navigation.selectedPlaylistId} playlistType={navigation.selectedPlaylistType} />
+      <PlaylistView playlistId={navigation.selectedPlaylistId} playlistType={navigation.selectedPlaylistType} playlistHref={navigation.selectedPlaylistHref} />
     </div>
   {/if}
 
