@@ -1,4 +1,5 @@
 use crate::client::AppleMusicClient;
+use crate::config::PlaybackQuality;
 use crate::error::{Result, StreamerError};
 use m3u8_rs::Playlist;
 use regex::Regex;
@@ -65,6 +66,7 @@ pub async fn extract_media_playlist(
     client: &AppleMusicClient,
     m3u8_url: &str,
     codec: Codec,
+    quality: PlaybackQuality,
 ) -> crate::error::Result<(m3u8_rs::MediaPlaylist, String)> {
     let master = client.download_m3u8(m3u8_url).await?;
     let master = sanitize_master_playlist_text(&master);
@@ -75,31 +77,53 @@ pub async fn extract_media_playlist(
         _ => todo!(),
     };
 
-    let mut selected_codec_id = None;
-    let mut selected_stream_url = None;
-    let mut max_bandwidth = 0;
+    let mut preferred_variants: Vec<(u64, u32, String, String)> = Vec::new();
+    let mut fallback_variants: Vec<(u64, u32, String, String)> = Vec::new();
 
     for variant in &master_playlist.variants {
         let audio = variant.audio.clone().unwrap_or_default();
-        if codec_matches(&audio, codec) {
-            let bw = variant.bandwidth;
-            if bw >= max_bandwidth {
-                max_bandwidth = bw;
-                selected_codec_id = Some(audio);
-                let stream_url = master_url.join(&variant.uri).unwrap().to_string();
-                selected_stream_url = Some(stream_url);
-            }
+        if !codec_matches(&audio, codec) {
+            continue;
+        }
+
+        let (sample_rate, _bit_depth) = parse_alac_quality_from_codec_id(&audio);
+        let Some(sample_rate) = sample_rate else {
+            continue;
+        };
+
+        let stream_url = master_url.join(&variant.uri).unwrap().to_string();
+        let candidate = (variant.bandwidth, sample_rate, audio, stream_url);
+
+        fallback_variants.push(candidate.clone());
+
+        let matches_quality = match quality {
+            PlaybackQuality::Lossless => sample_rate <= 48_000,
+            PlaybackQuality::HiResLossless => sample_rate > 48_000,
+        };
+
+        if matches_quality {
+            preferred_variants.push(candidate);
         }
     }
 
-    let stream_url = selected_stream_url.unwrap();
+    let selected = preferred_variants
+        .into_iter()
+        .max_by_key(|candidate| (candidate.0, candidate.1))
+        .or_else(|| {
+            fallback_variants
+                .into_iter()
+                .max_by_key(|candidate| (candidate.0, candidate.1))
+        })
+        .ok_or_else(|| StreamerError::Unsupported("no matching ALAC variant found".to_string()))?;
+
+    let stream_url = selected.3;
     let stream = client.download_m3u8(&stream_url).await?;
 
     let media_playlist = match m3u8_rs::parse_playlist_res(stream.as_bytes()) {
         Ok(Playlist::MediaPlaylist(playlist)) => playlist,
         _ => todo!(),
     };
-    Ok((media_playlist, selected_codec_id.unwrap()))
+    Ok((media_playlist, selected.2))
 }
 
 fn sanitize_master_playlist_text(text: &str) -> String {

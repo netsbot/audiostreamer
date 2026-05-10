@@ -2,6 +2,7 @@ use crate::audio::source::AudioChunk;
 use crate::audio::source::AudioSource;
 use crate::audio::source::SampleBuffer;
 use crate::client::AppleMusicClient;
+use crate::config::PlaybackQuality;
 use crate::error::{Result, StreamerError};
 use crate::sources::utils;
 use crate::sources::utils::MemFile;
@@ -239,6 +240,7 @@ async fn connect_decrypt_socket(sock_path: &str) -> Result<UnixStream> {
 async fn load_song_bootstrap(
     adam_id: &str,
     client: &AppleMusicClient,
+    quality: PlaybackQuality,
 ) -> Result<CachedSongBootstrap> {
     {
         let cache = song_bootstrap_cache().read().await;
@@ -255,7 +257,7 @@ async fn load_song_bootstrap(
             StreamerError::Message(format!("failed to fetch playlist URL for {adam_id}: {e}"))
         })?;
     let (media_playlist, codec_id) =
-        utils::extract_media_playlist(client, &m3u8_url, utils::Codec::Alac)
+        utils::extract_media_playlist(client, &m3u8_url, utils::Codec::Alac, quality)
             .await
             .map_err(|e| {
                 StreamerError::Message(format!("failed to load media playlist for {adam_id}: {e}"))
@@ -325,8 +327,12 @@ pub struct Song {
 impl Song {
     const PREFETCH_WINDOW_SEGMENTS: usize = 8;
 
-    pub async fn new(adam_id: &str, client: AppleMusicClient) -> Result<Self> {
-        let bootstrap = load_song_bootstrap(adam_id, &client).await?;
+    pub async fn new(
+        adam_id: &str,
+        client: AppleMusicClient,
+        quality: PlaybackQuality,
+    ) -> Result<Self> {
+        let bootstrap = load_song_bootstrap(adam_id, &client, quality).await?;
         let m3u8_url = bootstrap.m3u8_url;
         let media_playlist = bootstrap.media_playlist;
         let codec_id = bootstrap.codec_id;

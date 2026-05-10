@@ -1,9 +1,11 @@
 use crate::discord::DiscordState;
+use crate::config::PlaybackQuality;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::path::Path;
 use tauri::{AppHandle, Cef, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
@@ -64,15 +66,21 @@ struct AppState {
     runtime: Arc<Mutex<PlaybackRuntime>>,
     controls: Arc<Mutex<MediaControls>>,
     discord: Arc<DiscordState>,
+    playback_quality: PlaybackQuality,
 }
 
 impl AppState {
-    fn new(app_handle: AppHandle<Cef>, controls: MediaControls) -> Self {
+    fn new(
+        app_handle: AppHandle<Cef>,
+        controls: MediaControls,
+        playback_quality: PlaybackQuality,
+    ) -> Self {
         Self {
             app_handle,
             runtime: Arc::new(Mutex::new(PlaybackRuntime::new())),
             controls: Arc::new(Mutex::new(controls)),
             discord: Arc::new(DiscordState::new()),
+            playback_quality,
         }
     }
 }
@@ -92,6 +100,7 @@ async fn start_playback(
     app_handle: AppHandle<Cef>,
     adam_id: String,
     metadata: PlaySongMetadata,
+    playback_quality: PlaybackQuality,
     start_time: f64,
     existing_controls: Option<PlaybackControls>,
 ) -> Result<(), String> {
@@ -163,6 +172,7 @@ async fn start_playback(
         let total_time = metadata.duration_ms.unwrap_or(0) as f64 / 1000.0;
         let playback_result = crate::app::execute_playback_at(
             adam_id_for_task.clone(),
+            playback_quality,
             paused,
             frames_played,
             output_sample_rate,
@@ -282,8 +292,8 @@ async fn get_lyrics_payload(adam_id: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn preload_song(adam_id: String) -> Result<(), String> {
-    crate::app::preload_song(adam_id)
+async fn preload_song(state: State<'_, AppState>, adam_id: String) -> Result<(), String> {
+    crate::app::preload_song(adam_id, state.playback_quality)
         .await
         .map_err(|e| e.to_string())
 }
@@ -295,6 +305,7 @@ async fn play_song(state: State<'_, AppState>, request: PlaySongRequest) -> Resu
         state.app_handle.clone(),
         request.adam_id,
         request.metadata,
+        state.playback_quality,
         0.0,
         None,
     )
@@ -395,6 +406,7 @@ async fn seek(state: State<'_, AppState>, seconds: f64) -> Result<(), String> {
         state.app_handle.clone(),
         adam_id,
         metadata,
+        state.playback_quality,
         seconds,
         existing_controls,
     )
@@ -434,7 +446,15 @@ pub fn run() {
                 })
                 .map_err(|e| e.to_string())?;
 
-            app.manage(AppState::new(app.handle().clone(), controls));
+            let playback_quality = match crate::config::load_playback_quality(Some(Path::new("config.toml"))) {
+                Ok(quality) => quality,
+                Err(error) => {
+                    log::warn!("failed to load config.toml playback quality: {}", error);
+                    PlaybackQuality::Lossless
+                }
+            };
+
+            app.manage(AppState::new(app.handle().clone(), controls, playback_quality));
 
             let handle_clone = app.handle().clone();
             tauri::async_runtime::spawn(async move {

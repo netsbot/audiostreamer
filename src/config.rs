@@ -11,6 +11,7 @@ pub struct AppConfig {
     pub source_path: PathBuf,
     pub output: OutputSelection,
     pub chunk_size: usize,
+    pub quality: PlaybackQuality,
 }
 
 impl AppConfig {
@@ -48,6 +49,7 @@ impl AppConfig {
             source_path: PathBuf::from(input),
             output,
             chunk_size,
+            quality: file_config.stream.quality,
         })
     }
 }
@@ -77,6 +79,16 @@ impl From<CliOutputMode> for OutputSelection {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+pub enum PlaybackQuality {
+    #[default]
+    #[serde(rename = "lossless")]
+    Lossless,
+    #[serde(alias = "hires-lossless")]
+    #[serde(rename = "hi-res-lossless")]
+    HiResLossless,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct FileConfig {
     #[serde(default)]
@@ -91,6 +103,13 @@ impl FileConfig {
     fn load_from_path(path: &Path) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         Ok(toml::from_str::<Self>(&content)?)
+    }
+}
+
+pub fn load_playback_quality(path: Option<&Path>) -> Result<PlaybackQuality> {
+    match path {
+        Some(path) if path.exists() => Ok(FileConfig::load_from_path(path)?.stream.quality),
+        _ => Ok(PlaybackQuality::default()),
     }
 }
 
@@ -136,12 +155,15 @@ impl Default for FileOutputConfig {
 struct FileStreamConfig {
     #[serde(default = "default_chunk_size")]
     chunk_size: usize,
+    #[serde(default)]
+    quality: PlaybackQuality,
 }
 
 impl Default for FileStreamConfig {
     fn default() -> Self {
         Self {
             chunk_size: default_chunk_size(),
+            quality: PlaybackQuality::default(),
         }
     }
 }
@@ -167,7 +189,7 @@ mod tests {
         let mut file = NamedTempFile::new().expect("temp file");
         writeln!(
             file,
-            "[source]\ninput = \"song.wav\"\n[output]\nmode = \"noop\"\n[stream]\nchunk_size = 1024"
+            "[source]\ninput = \"song.wav\"\n[output]\nmode = \"noop\"\n[stream]\nchunk_size = 1024\nquality = \"hi-res-lossless\""
         )
         .expect("write config");
 
@@ -183,6 +205,7 @@ mod tests {
         assert_eq!(cfg.source_path, PathBuf::from("other.wav"));
         assert!(matches!(cfg.output, OutputSelection::Playback));
         assert_eq!(cfg.chunk_size, 4096);
+        assert!(matches!(cfg.quality, PlaybackQuality::HiResLossless));
     }
 
     #[test]
@@ -197,5 +220,11 @@ mod tests {
 
         let err = AppConfig::from_cli(cli).expect_err("must fail without input");
         assert!(matches!(err, StreamerError::InvalidConfig(_)));
+    }
+
+    #[test]
+    fn defaults_playback_quality() {
+        let quality = load_playback_quality(None).expect("default quality");
+        assert!(matches!(quality, PlaybackQuality::Lossless));
     }
 }

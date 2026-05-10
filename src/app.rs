@@ -3,6 +3,7 @@ use crate::audio::source::AudioSource;
 use crate::audio::stream::pump_stream;
 use crate::am_wrapper;
 use crate::client::AppleMusicClient;
+use crate::config::{AppConfig, PlaybackQuality};
 use crate::error::Result;
 use crate::sinks::playback::{PlaybackControls, PlaybackSink};
 use crate::sources::song::Song;
@@ -25,6 +26,7 @@ use tokio::sync::Mutex;
 
 pub async fn execute_playback(
     adam_id: String,
+    quality: PlaybackQuality,
     paused: Arc<AtomicBool>,
     samples_played: Arc<AtomicU64>,
     output_sample_rate: Arc<AtomicU64>,
@@ -33,6 +35,7 @@ pub async fn execute_playback(
 ) -> Result<()> {
     execute_playback_at(
         adam_id,
+        quality,
         paused,
         samples_played,
         output_sample_rate,
@@ -46,6 +49,7 @@ pub async fn execute_playback(
 
 pub async fn execute_playback_at(
     adam_id: String,
+    quality: PlaybackQuality,
     paused: Arc<AtomicBool>,
     samples_played: Arc<AtomicU64>,
     output_sample_rate: Arc<AtomicU64>,
@@ -58,7 +62,7 @@ pub async fn execute_playback_at(
         crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}"))
     })?;
 
-    let mut source = Song::new(&adam_id, client).await?;
+    let mut source = Song::new(&adam_id, client, quality).await?;
     if start_time > 0.0 {
         source.seek(start_time).await?;
     }
@@ -107,7 +111,9 @@ pub async fn execute_playback_at(
 pub async fn run() -> Result<()> {
     let cli = CliArgs::parse();
 
-    if let Some(adam_id) = cli.adam_id {
+    if cli.adam_id.is_some() {
+        let config = AppConfig::from_cli(cli.clone())?;
+        let adam_id = cli.adam_id.expect("checked is_some");
         am_wrapper::warm_up().await?;
 
         let paused = Arc::new(AtomicBool::new(false));
@@ -120,6 +126,7 @@ pub async fn run() -> Result<()> {
         
         execute_playback(
             adam_id,
+            config.quality,
             paused,
             samples_played,
             output_sample_rate,
@@ -133,13 +140,13 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
-pub async fn preload_song(adam_id: String) -> Result<()> {
+pub async fn preload_song(adam_id: String, quality: PlaybackQuality) -> Result<()> {
     let client = AppleMusicClient::new().await.map_err(|e| {
         crate::error::StreamerError::Message(format!("failed to build AppleMusicClient: {e}"))
     })?;
 
     // Constructing Song warms playlist/init caches and triggers segment prefetch.
-    let song = Song::new(&adam_id, client).await?;
+    let song = Song::new(&adam_id, client, quality).await?;
     song.predownload_all_segments();
     Ok(())
 }

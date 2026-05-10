@@ -1,0 +1,4 @@
+[stream]
+# lossless = 44.1 kHz / 48 kHz
+# hi-res-lossless = above 48 kHz
+quality = "lossless"
