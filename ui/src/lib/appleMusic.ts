@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { get, set } from "tauri-plugin-cache-api";
 
 const DEV_TOKEN_CACHE_KEY = "audiostreamer:apple-music-dev-token:v1";
 const USER_TOKEN_CACHE_KEY = "audiostreamer:apple-music-user-token:v1";
@@ -113,4 +114,30 @@ export async function fetchAppleMusic(
   }
 
   return response;
+}
+
+export async function fetchAppleMusicJson(
+  url: string,
+  cacheKey: string,
+  ttl: number = 900,
+  init: RequestInit = {},
+  options: { retryOnAuthFailure?: boolean; forceRefresh?: boolean } = {},
+): Promise<any> {
+  if (!options.forceRefresh) {
+    const cached = await get<any>(cacheKey);
+    if (cached) {
+      console.log(`[cache HIT] ${cacheKey}`, typeof cached, cached ? Object.keys(cached) : "null");
+      return cached;
+    }
+  }
+
+  console.log(`[cache MISS] ${cacheKey} — fetching network`);
+  const response = await fetchAppleMusic(url, init, options);
+  if (!response.ok) {
+    throw new Error(`API failed: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  await set(cacheKey, data, { ttl, compress: true });
+  return data;
 }

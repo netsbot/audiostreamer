@@ -45,7 +45,6 @@
       placeholder="Search..."
       class="w-full bg-zinc-950/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
     />
-    />
   </div>
 
   <nav class="flex flex-col gap-y-1">
@@ -105,8 +104,7 @@
 
         {#each otherPlaylists as pl}
           <button
-            onclick={() =>
-              navigation.openPlaylist(pl.id, "library-playlists")}
+            onclick={() => navigation.openPlaylist(pl.id, "library-playlists")}
             class="px-3 py-2 text-sm text-left hover:text-white transition-colors truncate w-full {navigation.selectedPlaylistId ===
             pl.id
               ? 'text-red-500 font-semibold'

@@ -7,8 +7,10 @@
   import Play from "lucide-svelte/icons/play";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playback } from "$lib/playback.svelte";
-  import { fetchAppleMusic } from "$lib/appleMusic";
+  import { fetchAppleMusic, fetchAppleMusicJson } from "$lib/appleMusic";
   import { snapShelf } from "$lib/actions/snapShelf";
+
+  console.log("Hls.js Version:", Hls.version);
 
   let {
     openAlbum = (id: string, type: string = "albums") => {},
@@ -386,7 +388,11 @@
 
   async function handleItemClick(item: any) {
     const type = item.type;
-    if (type === "albums" || type === "library-albums" || type === "personal-recommendation") {
+    if (
+      type === "albums" ||
+      type === "library-albums" ||
+      type === "personal-recommendation"
+    ) {
       openAlbum(item.id, type, item.href);
     } else if (type === "songs") {
       await playback.playSong(item.id, {
@@ -443,36 +449,50 @@
 
       const url = `https://amp-api.music.apple.com/v1/me/recommendations?${params.toString()}`;
 
-      const response = await fetchAppleMusic(url, {
-        method: "GET",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-          "sec-ch-ua-platform": '"Linux"',
-          Referer: "https://beta.music.apple.com/",
-          Origin: "https://beta.music.apple.com",
+      const data = await fetchAppleMusicJson(
+        url,
+        "home-feed-recommendations",
+        900, // 15 mins
+        {
+          method: "GET",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            "sec-ch-ua-platform": '"Linux"',
+            Referer: "https://beta.music.apple.com/",
+            Origin: "https://beta.music.apple.com",
+          },
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
-      }
-
-      const data = await response.json();
+      );
 
       // Store the resource map for resolving references
       if (data.resources) {
         resourceMap = data.resources;
+        console.log("[HomeFeed] resourceMap keys:", Object.keys(data.resources));
+      } else {
+        console.warn("[HomeFeed] NO resources in data — keys:", Object.keys(data));
       }
 
       // With format[resources]=map, data[] contains bare stubs {type, id}.
       // The actual recommendation objects live in resources['personal-recommendation'][id].
       // We need to resolve them first.
       const rawRecs = data.data || [];
+      console.log("[HomeFeed] rawRecs count:", rawRecs.length);
       recommendations = rawRecs.map((stub: any) => {
         const resolved = resolveResource(stub);
         return resolved;
       });
+
+      // Debug: check first hero item for video
+      if (recommendations.length > 0) {
+        const first = recommendations[0];
+        const items = getShelfItems(first);
+        if (items.length > 0) {
+          const vid = getVideoUrl(items[0]);
+          console.log("[HomeFeed] first item video URL:", vid ? vid.substring(0, 80) + "..." : "null");
+          console.log("[HomeFeed] first item artwork:", getHeroArtwork(items[0])?.url?.substring(0, 80));
+        }
+      }
     } catch (e: any) {
       console.error("Failed to fetch recommendations:", e);
       error = e.message || "Failed to load recommendations";

@@ -1,4 +1,4 @@
-import { fetchAppleMusic } from "$lib/appleMusic";
+import { fetchAppleMusic, fetchAppleMusicJson } from "$lib/appleMusic";
 
 export interface LibraryPlaylist {
   id: string;
@@ -38,13 +38,9 @@ class LibraryState {
 
       while (nextHref) {
         const url = nextHref.startsWith("http") ? nextHref : `${apiBase}${nextHref}`;
-        const response = await fetchAppleMusic(url, { method: "GET" });
+        const cacheKey = `library-playlists-${url}`;
+        const data = await fetchAppleMusicJson(url, cacheKey, 1800, { method: "GET" });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch playlists: ${response.statusText}`);
-        }
-
-        const data = await response.json();
         const batch = data.data || [];
         allPlaylists = [...allPlaylists, ...batch];
         
@@ -199,13 +195,9 @@ class LibraryState {
 
       while (nextHref) {
         const url = nextHref.startsWith("http") ? nextHref : `${apiBase}${nextHref}`;
-        const response = await fetchAppleMusic(url, { method: "GET" });
+        const cacheKey = `favorite-tracks-${url}`;
+        const data = await fetchAppleMusicJson(url, cacheKey, 300, { method: "GET" });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch favorite playlist tracks: ${response.status}`);
-        }
-
-        const data = await response.json();
         const songs = data.data || [];
         const resourceLibrarySongs = data.resources?.["library-songs"] || {};
         for (const s of songs) {

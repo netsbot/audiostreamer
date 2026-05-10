@@ -462,6 +462,7 @@ pub fn run() {
                 )?;
             }
             app.handle().plugin(tauri_plugin_http::init())?;
+            app.handle().plugin(tauri_plugin_cache::init())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

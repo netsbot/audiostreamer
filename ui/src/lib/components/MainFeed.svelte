@@ -72,7 +72,7 @@
     </div>
   {/if}
 
-  {#if navigation.activeView === "home"}
+  <div class={navigation.activeView === "home" ? "block" : "hidden"}>
     <HomeFeed {openAlbum} {openPlaylist} />
-  {/if}
+  </div>
 </main>

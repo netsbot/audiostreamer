@@ -16,10 +16,13 @@ importers:
         version: 2.5.8
       hls.js:
         specifier: ^1.6.15
-        version: 1.6.16
+        version: 1.6.15
       lucide-svelte:
         specifier: ^1.0.1
         version: 1.0.1(svelte@5.55.3)
+      tauri-plugin-cache-api:
+        specifier: ^0.1.6
+        version: 0.1.6
     devDependencies:
       '@fontsource-variable/geist':
         specifier: ^5.2.8
@@ -599,8 +602,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  hls.js@1.6.16:
-    resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
+  hls.js@1.6.15:
+    resolution: {integrity: sha512-E3a5VwgXimGHwpRGV+WxRTKeSp2DW5DI5MWv34ulL3t5UNmyJWCQ1KmLEHbYzcfThfXG8amBL+fCYPneGHC4VA==}
 
   inline-style-parser@0.2.7:
     resolution: {integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==}
@@ -798,6 +801,9 @@ packages:
   tapable@2.3.2:
     resolution: {integrity: sha512-1MOpMXuhGzGL5TTCZFItxCc0AARf1EZFQkGqMm7ERKj8+Hgr5oLvJOVFcC+lRmR8hCe2S3jC4T5D7Vg/d7/fhA==}
     engines: {node: '>=6'}
+
+  tauri-plugin-cache-api@0.1.6:
+    resolution: {integrity: sha512-JjkyoISdJLh1M8+wtz/qUglXMVQiim/VR3bQZxijq7GMiPu1DZScMCmIOxEZEPipkF0Y9cRh+svxR2n6oOZl9w==}
 
   tinyglobby@0.2.16:
     resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
@@ -1259,7 +1265,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  hls.js@1.6.16: {}
+  hls.js@1.6.15: {}
 
   inline-style-parser@0.2.7: {}
 
@@ -1451,6 +1457,10 @@ snapshots:
   tailwindcss@4.2.2: {}
 
   tapable@2.3.2: {}
+
+  tauri-plugin-cache-api@0.1.6:
+    dependencies:
+      '@tauri-apps/api': 2.10.1
 
   tinyglobby@0.2.16:
     dependencies:

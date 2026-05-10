@@ -5,7 +5,7 @@
   import Shuffle from "lucide-svelte/icons/shuffle";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import TrackList from "./TrackList.svelte";
-  import { fetchAppleMusic } from "$lib/appleMusic";
+  import { fetchAppleMusic, fetchAppleMusicJson } from "$lib/appleMusic";
   import { snapShelf } from "$lib/actions/snapShelf";
 
   let { albumId = "", albumType = "albums", albumHref = "" } = $props();
@@ -51,9 +51,9 @@
 
       console.log(url);
 
-      const response = await fetchAppleMusic(url, { method: "GET" });
+      const cacheKey = `album-${albumId}-${url}`;
+      const data = await fetchAppleMusicJson(url, cacheKey, 3600, { method: "GET" });
 
-      const data = await response.json();
       albumData = data?.data?.[0] || null;
     } catch (error) {
       console.error("Failed to fetch album details:", error);

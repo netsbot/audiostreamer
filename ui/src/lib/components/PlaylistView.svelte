@@ -4,7 +4,7 @@
   import Shuffle from "lucide-svelte/icons/shuffle";
   import Loader2 from "lucide-svelte/icons/loader-2";
   import { playback, type QueueTrack } from "$lib/playback.svelte";
-  import { fetchAppleMusic } from "$lib/appleMusic";
+  import { fetchAppleMusic, fetchAppleMusicJson } from "$lib/appleMusic";
   function buildPlaylistQueue(): QueueTrack[] {
     const tracks = playlistData?.relationships?.tracks?.data || [];
     return tracks
@@ -83,13 +83,9 @@
       }
 
       console.log("Fetching playlist:", url);
-      const response = await fetchAppleMusic(url, { method: "GET" });
+      const cacheKey = `playlist-${playlistId}-${url}`;
+      const data = await fetchAppleMusicJson(url, cacheKey, 3600, { method: "GET" });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch playlist details: ${response.status}`);
-      }
-
-      const data = await response.json();
       const basePlaylist = data?.data?.[0] || null;
       if (!basePlaylist) {
         playlistData = null;
@@ -105,17 +101,11 @@
         const pageUrl = nextTracksHref.startsWith("http")
           ? nextTracksHref
           : `${apiBase}${nextTracksHref}`;
-        const tracksResponse = await fetchAppleMusic(pageUrl, {
+        const pageCacheKey = `playlist-tracks-${pageUrl}`;
+        const tracksData = await fetchAppleMusicJson(pageUrl, pageCacheKey, 3600, {
           method: "GET",
         });
 
-        if (!tracksResponse.ok) {
-          throw new Error(
-            `Failed to fetch playlist tracks: ${tracksResponse.status}`,
-          );
-        }
-
-        const tracksData = await tracksResponse.json();
         const pageTracks = tracksData?.data || [];
         allTracks = [...allTracks, ...pageTracks];
         nextTracksHref = tracksData?.next ?? null;
