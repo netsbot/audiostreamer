@@ -45,13 +45,7 @@
       placeholder="Search..."
       class="w-full bg-zinc-950/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
     />
-    {#if search.isSearching}
-      <div class="absolute right-3 top-1/2 -translate-y-1/2">
-        <div
-          class="size-2.5 border-2 border-red-500/50 border-t-red-500 rounded-full animate-spin"
-        ></div>
-      </div>
-    {/if}
+    />
   </div>
 
   <nav class="flex flex-col gap-y-1">
@@ -109,25 +103,18 @@
           </button>
         {/if}
 
-        {#if library.isLoading && library.playlists.length === 0}
-          <div class="px-3 py-2 flex items-center gap-2 text-zinc-500 text-xs">
-            <Loader2 class="size-3 animate-spin" />
-            <span>Loading...</span>
-          </div>
-        {:else}
-          {#each otherPlaylists as pl}
-            <button
-              onclick={() =>
-                navigation.openPlaylist(pl.id, "library-playlists")}
-              class="px-3 py-2 text-sm text-left hover:text-white transition-colors truncate w-full {navigation.selectedPlaylistId ===
-              pl.id
-                ? 'text-red-500 font-semibold'
-                : 'text-zinc-400'}"
-            >
-              {pl.name}
-            </button>
-          {/each}
-        {/if}
+        {#each otherPlaylists as pl}
+          <button
+            onclick={() =>
+              navigation.openPlaylist(pl.id, "library-playlists")}
+            class="px-3 py-2 text-sm text-left hover:text-white transition-colors truncate w-full {navigation.selectedPlaylistId ===
+            pl.id
+              ? 'text-red-500 font-semibold'
+              : 'text-zinc-400'}"
+          >
+            {pl.name}
+          </button>
+        {/each}
       </nav>
     </div>
   </div>

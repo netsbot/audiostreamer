@@ -194,13 +194,7 @@
 
 <div class="container mx-auto px-4 pb-24">
   {#if isLoading}
-    <div
-      class="flex flex-col items-center justify-center h-[60vh] gap-4"
-      in:fade
-    >
-      <Loader2 class="size-10 text-red-500 animate-spin" />
-      <p class="text-zinc-500 font-medium animate-pulse">Loading playlist...</p>
-    </div>
+    <div class="h-[60vh]"></div>
   {:else if playlistData}
     <div in:fade={{ duration: 400 }}>
       <div class="flex flex-col md:flex-row gap-10 mb-12 items-end">

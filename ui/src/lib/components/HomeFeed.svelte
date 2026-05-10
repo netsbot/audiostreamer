@@ -665,15 +665,7 @@
     class="fixed top-0 left-0 w-px h-px bg-white/1 backdrop-blur-md pointer-events-none -z-10"
   ></div>
   {#if isLoading}
-    <div
-      class="flex flex-col items-center justify-center h-[60vh] gap-4"
-      in:fade
-    >
-      <Loader2 class="size-10 text-red-500 animate-spin" />
-      <p class="text-zinc-500 font-medium animate-pulse">
-        Loading your recommendations...
-      </p>
-    </div>
+    <div class="h-[60vh]"></div>
   {:else if error}
     <div
       class="flex flex-col items-center justify-center h-[60vh] gap-4 text-center"
