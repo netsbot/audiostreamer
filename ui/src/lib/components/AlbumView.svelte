@@ -20,9 +20,14 @@
     const catalogTrack = track.relationships?.catalog?.data?.[0];
     const attrs = track.attributes || catalogTrack?.attributes || {};
     const id = catalogTrack?.id || track.id;
+    const playbackId =
+      attrs.playParams?.catalogId ||
+      catalogTrack?.attributes?.playParams?.catalogId ||
+      id;
 
     return {
       id,
+      playbackId,
       attrs,
     };
   }
@@ -49,12 +54,12 @@
             : `https://api.music.apple.com/v1/catalog/vn/${albumType === 'albums' ? 'albums' : albumType}/${albumId}?include=tracks,artists&views=related-albums`;
       }
 
-      console.log(url);
-
       const cacheKey = `album-${albumId}-${url}`;
       const data = await fetchAppleMusicJson(url, cacheKey, 3600, { method: "GET" });
 
       albumData = data?.data?.[0] || null;
+
+      console.log(albumData.attributes);
     } catch (error) {
       console.error("Failed to fetch album details:", error);
       albumData = null;
@@ -86,9 +91,9 @@
     return tracks
       .map((track: any) => {
         const resolved = resolveTrack(track);
-        if (!resolved.id) return null;
+        if (!resolved.playbackId) return null;
         return {
-          id: resolved.id,
+          id: resolved.playbackId,
           metadata: {
             title: resolved.attrs.name || "Unknown",
             artist: resolved.attrs.artistName || "Unknown Artist",
@@ -107,16 +112,16 @@
 
   async function playTrack(track: any, index?: number) {
     const resolved = resolveTrack(track);
-    if (!resolved.id) return;
+    if (!resolved.playbackId) return;
 
     const queue = buildAlbumQueue();
     const startIndex =
       typeof index === "number"
         ? index
-        : queue.findIndex((entry) => entry.id === resolved.id);
+        : queue.findIndex((entry) => entry.id === resolved.playbackId);
 
     await playback.playSong(
-      resolved.id,
+      resolved.playbackId,
       {
         title: resolved.attrs.name || "Unknown",
         artist: resolved.attrs.artistName || "Unknown Artist",
