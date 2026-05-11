@@ -32,12 +32,6 @@ impl AppConfig {
             .trim()
             .to_string();
 
-        if input.is_empty() {
-            return Err(StreamerError::InvalidConfig(
-                "input must be provided via --input or config source.input".to_string(),
-            ));
-        }
-
         let chunk_size = cli.chunk_size.unwrap_or(file_config.stream.chunk_size);
         if chunk_size == 0 {
             return Err(StreamerError::InvalidConfig(
@@ -209,7 +203,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_empty_input() {
+    fn allows_empty_input() {
         let cli = CliArgs {
             config: None,
             input: None,
@@ -218,8 +212,8 @@ mod tests {
             adam_id: None,
         };
 
-        let err = AppConfig::from_cli(cli).expect_err("must fail without input");
-        assert!(matches!(err, StreamerError::InvalidConfig(_)));
+        let cfg = AppConfig::from_cli(cli).expect("empty input should be allowed");
+        assert_eq!(cfg.source_path, PathBuf::new());
     }
 
     #[test]

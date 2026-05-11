@@ -18,8 +18,21 @@ fn wrapper_process() -> &'static Mutex<Option<Child>> {
     WRAPPER_PROCESS.get_or_init(|| Mutex::new(None))
 }
 
+fn get_decrypt_sock_path() -> String {
+    format!(
+        "{}/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
+        env!("WRAPPER_DIR")
+    )
+}
+
 fn spawn_wrapper_process() -> std::io::Result<Child> {
     let wrapper_dir = env!("WRAPPER_DIR");
+    
+    // Kill ghosts
+    let _ = Command::new("pkill")
+        .args(["-9", "wrapper"])
+        .status();
+
     Command::new(format!("{}/wrapper", wrapper_dir))
         .current_dir(wrapper_dir)
         .stdout(Stdio::inherit())
@@ -52,12 +65,14 @@ pub async fn ensure_wrapper_running() -> Result<()> {
             Ok(Some(status)) => {
                 log::warn!("wrapper process exited with status {status}; restarting");
                 *child_guard = None;
+                let _ = std::fs::remove_file(get_decrypt_sock_path());
                 should_spawn = true;
             }
             Ok(None) => {}
             Err(error) => {
                 log::warn!("failed to check wrapper process state ({error}); restarting");
                 *child_guard = None;
+                let _ = std::fs::remove_file(get_decrypt_sock_path());
                 should_spawn = true;
             }
         }
@@ -82,11 +97,35 @@ pub async fn restart_wrapper() -> Result<()> {
             log::warn!("failed to kill stale wrapper process: {error}");
         }
         let _ = child.wait();
+        let _ = std::fs::remove_file(get_decrypt_sock_path());
     }
 
     let child = spawn_wrapper_process()?;
     log::info!("wrapper process restarted");
     *child_guard = Some(child);
+    Ok(())
+}
+
+pub async fn shutdown() -> Result<()> {
+    let mut child_guard = wrapper_process().lock().await;
+
+    if let Some(mut child) = child_guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+        eprintln!("[+] wrapper process killed");
+    }
+
+    let sock_path = get_decrypt_sock_path();
+    eprintln!("[+] attempting to remove socket: {}", sock_path);
+    if std::path::Path::new(&sock_path).exists() {
+        match std::fs::remove_file(&sock_path) {
+            Ok(_) => eprintln!("[+] socket file removed"),
+            Err(e) => eprintln!("[!] failed to remove socket file: {}", e),
+        }
+    } else {
+        eprintln!("[!] socket file not found at that path");
+    }
+
     Ok(())
 }
 
@@ -118,10 +157,7 @@ async fn wait_for_decrypt_socket_ready(sock_path: &str, wait_seconds: u64) -> st
 }
 
 pub async fn warm_up() -> Result<()> {
-    let sock_path = format!(
-        "{}/rootfs/data/data/com.apple.android.music/files/decrypt.sock",
-        env!("WRAPPER_DIR")
-    );
+    let sock_path = get_decrypt_sock_path();
 
     ensure_wrapper_running().await?;
 

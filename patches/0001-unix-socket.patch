@@ -1,7 +1,7 @@
 diff --git a/main.c b/main.c
 index fbc7931..04d6f8a 100644
 --- a/main.c
-+++ b/main.c
++ b/main.c
 @@ -12,6 +12,7 @@
  #include <netinet/in.h>
  #include <sys/socket.h>
@@ -72,58 +72,75 @@ index fbc7931..04d6f8a 100644
      }
  }
  
-+static inline void *new_socket_unix_decrypt(void *args) {
-+    char *sock_path = strcat_b(args_info.base_dir_arg, "/decrypt.sock");
-+    if (sock_path == NULL) {
-+        perror("malloc");
-+        return NULL;
-+    }
++static char *g_unix_sock_path = NULL;
 +
-+    unlink(sock_path);
-+
-+    const int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-+    if (fd == -1) {
-+        perror("socket");
-+        free(sock_path);
-+        return NULL;
-+    }
-+
-+    struct sockaddr_un addr;
-+    memset(&addr, 0, sizeof(addr));
-+    addr.sun_family = AF_UNIX;
-+    strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
-+    free(sock_path);
-+
-+    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-+        perror("bind");
-+        close(fd);
-+        return NULL;
-+    }
-+
-+    if (listen(fd, 5) == -1) {
-+        perror("listen");
-+        close(fd);
-+        return NULL;
-+    }
-+
-+    fprintf(stderr, "[!] unix decrypt socket ready\n");
-+
-+    while (1) {
-+        const int connfd = accept4(fd, NULL, NULL, SOCK_CLOEXEC);
-+        if (connfd == -1) {
-+            perror("accept4");
-+            continue;
-+        }
-+
-+        handle_unix(connfd);
-+
-+        if (close(connfd) == -1) {
-+            perror("close");
-+        }
-+    }
-+
-+    return NULL;
++static void cleanup_unix_sock(void) {
++     if (g_unix_sock_path) {
++          unlink(g_unix_sock_path);
++          free(g_unix_sock_path);
++          g_unix_sock_path = NULL;
++     }
 +}
++
++static inline void *new_socket_unix_decrypt(void *args) {
++     char *sock_path = strcat_b(args_info.base_dir_arg, "/decrypt.sock");
++     if (sock_path == NULL) {
++          perror("malloc");
++          return NULL;
++     }
++
++     /* remove stale socket if present */
++     unlink(sock_path);
++
++     /* keep global copy for cleanup at exit */
++     g_unix_sock_path = sock_path;
++     atexit(cleanup_unix_sock);
++
++     const int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
++     if (fd == -1) {
++          perror("socket");
++          cleanup_unix_sock();
++          return NULL;
++     }
++
++     struct sockaddr_un addr;
++     memset(&addr, 0, sizeof(addr));
++     addr.sun_family = AF_UNIX;
++     strncpy(addr.sun_path, g_unix_sock_path, sizeof(addr.sun_path) - 1);
++
++     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
++          perror("bind");
++          close(fd);
++          cleanup_unix_sock();
++          return NULL;
++     }
++
++     if (listen(fd, 5) == -1) {
++          perror("listen");
++          close(fd);
++          cleanup_unix_sock();
++          return NULL;
++     }
++
++     fprintf(stderr, "[!] unix decrypt socket ready\n");
++
++     while (1) {
++          const int connfd = accept4(fd, NULL, NULL, SOCK_CLOEXEC);
++          if (connfd == -1) {
++               perror("accept4");
++               continue;
++          }
++
++          handle_unix(connfd);
++
++          if (close(connfd) == -1) {
++               perror("close");
++          }
++     }
++
++     return NULL;
++}
++
 +
  char* get_account_storefront_id(struct shared_ptr reqCtx) {
      union std_string *region = malloc(sizeof(union std_string));

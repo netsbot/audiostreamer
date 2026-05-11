@@ -2,8 +2,17 @@
 async fn main() {
     env_logger::init();
 
-    if let Err(err) = audiostreamer::app::run().await {
-        eprintln!("error: {err}");
-        std::process::exit(1);
+    tokio::select! {
+        result = audiostreamer::app::run() => {
+            if let Err(err) = result {
+                eprintln!("error: {err}");
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            eprintln!("\n[!] Ctrl+C received, exiting...");
+        }
     }
+    
+    // Always try to cleanup wrapper
+    let _ = audiostreamer::am_wrapper::shutdown().await;
 }

@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -6,38 +7,51 @@ fn apply_patches(manifest_dir: &PathBuf, target_dir: &str, patches: &[&str]) {
         .join("target")
         .join(format!(".{}-patched", target_dir));
 
-    println!("cargo:warning={:?}", marker);
-
-    if marker.exists() {
-        return;
-    }
-
-    let dir = manifest_dir.join(target_dir);
+    let mut hasher = Sha256::new();
     for patch_name in patches {
         let patch_path = manifest_dir.join("patches").join(patch_name);
+        if patch_path.exists() {
+            if let Ok(content) = std::fs::read(&patch_path) {
+                hasher.update(content);
+            }
+        }
+    }
+    let current_hash = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
 
-        println!("cargo:warning={:?}", patch_path);
+    if marker.exists() {
+        if let Ok(old_hash) = std::fs::read_to_string(&marker) {
+            if old_hash.trim() == current_hash {
+                return;
+            }
+        }
+    }
 
+    println!("cargo:warning=Patch mismatch or missing marker for {}. Re-patching...", target_dir);
+
+    let dir = manifest_dir.join(target_dir);
+
+    // Reset to clean state before applying new patches
+    let _ = Command::new("git")
+        .args(["checkout", "--", "."])
+        .current_dir(&dir)
+        .status();
+    let _ = Command::new("git")
+        .args(["clean", "-f"])
+        .current_dir(&dir)
+        .status();
+
+    for patch_name in patches {
+        let patch_path = manifest_dir.join("patches").join(patch_name);
         if !patch_path.exists() {
             continue;
         }
 
-        // Check if already applied
-        let check = Command::new("git")
-            .args(["apply", "--check", "--reverse"])
-            .arg(patch_path.to_str().unwrap())
-            .current_dir(&dir)
-            .output();
-
-        if let Ok(output) = check {
-            if output.status.success() {
-                // Already applied
-                continue;
-            }
-        }
-
         let status = Command::new("git")
-            .args(["apply", "--reject", "--whitespace=fix"])
+            .args(["apply", "--whitespace=fix"])
             .arg(patch_path.to_str().unwrap())
             .current_dir(&dir)
             .status()
@@ -45,13 +59,13 @@ fn apply_patches(manifest_dir: &PathBuf, target_dir: &str, patches: &[&str]) {
 
         if !status.success() {
             println!(
-                "cargo:warning=Patch {} applied with rejects (partial)",
+                "cargo:warning=Patch {} failed to apply",
                 patch_name
             );
         }
     }
 
-    std::fs::write(&marker, "").ok();
+    std::fs::write(&marker, current_hash).ok();
 }
 
 fn build_wrapper() {
